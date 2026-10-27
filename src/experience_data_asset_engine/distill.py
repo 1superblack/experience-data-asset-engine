@@ -24,6 +24,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any, Final
 
+from . import noise as noise_module
 from .config import AppConfig, ensure_inside_vault, write_json_atomic
 from .errors import ConfigError, DistillationError, DistillerError, SchemaError
 from .models import (
@@ -37,7 +38,6 @@ from .models import (
     NoiseReport,
     NormalizedSession,
 )
-from .noise import filter_noise
 
 REQUEST_TIMEOUT_SECONDS: Final = 60.0
 MAX_RESPONSE_BYTES: Final = 2 * 1024 * 1024
@@ -152,9 +152,22 @@ def validate_distilled_note(data: Any) -> DistilledNote:
     return DistilledNote.from_dict(data)
 
 
-def prepare_distillation(session: NormalizedSession, config: AppConfig) -> DistilledNote:
-    """降噪 + 蒸馏。无 provider 时只写 staging 并抛 ``DistillationRequired``。"""
-    cleaned, report = filter_noise(session)
+def prepare_distillation(
+    session: NormalizedSession,
+    config: AppConfig,
+    *,
+    filtered: tuple[NormalizedSession, NoiseReport] | None = None,
+) -> DistilledNote:
+    """降噪 + 蒸馏。无 provider 时只写 staging 并抛 ``DistillationRequired``。
+
+    ``filtered`` 允许调用方复用它已经算好的 ``(降噪后会话, 统计)``：
+    一次归档只做一次降噪，避免同一份会话被过滤两遍、出现两个统计口径。
+    不传时保持原行为（自己跑 ``filter_noise``），旧调用方无需改动。
+    """
+    if filtered is None:
+        cleaned, report = noise_module.filter_noise(session)
+    else:
+        cleaned, report = filtered
 
     if not config.provider:
         request_path, schema_path = _write_staging(cleaned, report, config)
