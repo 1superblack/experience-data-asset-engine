@@ -19,8 +19,8 @@
   `metadata.slug/displayName/version` 合法；CI 直接调用，缺失或失败即红（不再 warning 跳过）。
 - **占位联系方式清零**：`SECURITY.md` 不再写占位邮箱，改为走平台私有安全报告入口；
   并加测试防止占位地址随包发布。
-- 打包产物随 `scripts/quick_validate.py` 增至 30 个文件，SHA256 为
-  `7586394d…e523`（同机同源两次构建一致）。
+- 打包产物随 `scripts/quick_validate.py` 增至 30 个文件；产物 SHA256 由打包命令输出，
+  **不写进仓库**——任何一次改动都会让写死的哈希过期。
 
 ### 打包、CI 与发布准备（Gate 5）
 
