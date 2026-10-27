@@ -370,12 +370,20 @@ def test_distilled_note_rejects_non_mapping():
         "a\x1bb",
         "",
         "   ",
+        "C:evil",
     ],
 )
 def test_session_rejects_unsafe_session_id(session_id):
     payload = session_payload()
     payload["session_id"] = session_id
     with pytest.raises(SchemaError, match="session_id"):
+        NormalizedSession.from_dict(payload)
+
+
+def test_session_rejects_overlong_session_id():
+    payload = session_payload()
+    payload["session_id"] = "x" * 201
+    with pytest.raises(SchemaError, match="200"):
         NormalizedSession.from_dict(payload)
 
 
