@@ -87,6 +87,28 @@ python scripts/cli.py --version
 
 配置字段、环境变量与诊断码见 [`references/config.md`](references/config.md)。
 
+## 降噪与蒸馏
+
+```python
+from experience_data_asset_engine.adapters import codex_jsonl
+from experience_data_asset_engine.config import load_config
+from experience_data_asset_engine.distill import DistillationRequired, prepare_distillation
+from experience_data_asset_engine.noise import filter_noise
+
+session = codex_jsonl.load_codex_session(Path("rollout.jsonl.zst"))
+cleaned, report = filter_noise(session)      # 四层降噪，返回新会话 + 7 项统计
+note = prepare_distillation(session, load_config())   # 无模型时抛 DistillationRequired
+```
+
+- **四层降噪**：输入（系统上下文、环境注入、空白、纯确认、回显）、执行（工具角色与长日志）、
+  知识（重复主题、显式失败短句）、安全（密钥、令牌、口令、Cookie、私钥 → `[已脱敏]`）。
+  恒等式 `input == kept + system + tool + duplicate + dead` 由测试守住，口径见
+  [`references/noise-policy.md`](references/noise-policy.md)。
+- **蒸馏**：没配模型时只在 `staging/` 写请求与 schema（文件名用 `sha256(source:session_id)`），
+  抛 `DistillationRequired`；配了模型就要求输出完整 `DistilledNote`，任何失败都失败关闭。
+  契约见 [`references/distill-prompt.md`](references/distill-prompt.md)。
+- **不写 vault**：这一版没有写入能力，`archive` 仍是退出码 4。
+
 ## 隐私
 
 - 只读输入文件，不修改、不移动原始会话。
@@ -96,9 +118,15 @@ python scripts/cli.py --version
 
 ## 当前版本范围
 
-`0.1.0` 只交付第一阶段骨架：CLI 骨架、vault 配置与 `doctor`、标准化会话与蒸馏笔记协议、
-Codex `.jsonl` / `.jsonl.zst` 输入适配。降噪、蒸馏、写入、检索、打包发布在后续阶段实现，
-见 [CHANGELOG.md](CHANGELOG.md)。**在对应能力实现前，`archive` 会以退出码 4 失败关闭。**
+`0.1.0` 交付到「降噪 + 蒸馏」：
+
+- 已实现：CLI 骨架、vault 配置与 `doctor`、标准化会话与蒸馏笔记协议、
+  Codex `.jsonl` / `.jsonl.zst` 输入、四层降噪与脱敏、蒸馏执行器（含无模型 staging）。
+- **未实现**：写入 vault、检索过滤、复核、打包发布。
+  这几项目前**不可用**，`archive` / `validate` / `status` / `recheck` / `uninstall`
+  一律以退出码 4 失败关闭。
+
+见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 卸载
 

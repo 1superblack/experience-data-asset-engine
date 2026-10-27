@@ -123,13 +123,23 @@ state_key = sha256(f"{source}:{session_id}").hexdigest()   # 64 位十六进制
 |---|---|
 | `input_messages` | 输入消息总数 |
 | `kept_messages` | 保留进蒸馏的有效消息数，必须 <= `input_messages` |
-| `system_noise` | 被过滤的输入噪音（系统提示、环境注入、空确认） |
-| `tool_noise` | 被过滤的执行噪音（工具输出、长日志、失败重试） |
+| `system_noise` | 被过滤的输入噪音（系统角色、环境注入、空白、纯确认、连续回显） |
+| `tool_noise` | 被过滤的执行噪音（工具角色/调用/输出、长日志式粘贴） |
 | `duplicate_topics` | 被合并的重复主题数 |
-| `dead_ends` | 被剔除的无效试错 / 已推翻假设 |
-| `redactions` | 脱敏替换次数 |
+| `dead_ends` | 被剔除的显式失败短句 |
+| `redactions` | 脱敏替换**次数**（按实际替换计数） |
 
-所有计数器为非负整数。它们会原样出现在笔记的「降噪统计」一节，是审计依据。
+所有计数器为非负整数，且满足不变式：
+
+```text
+input_messages == kept_messages + system_noise + tool_noise + duplicate_topics + dead_ends
+```
+
+`redactions` 独立于该等式——它统计替换次数，不减少消息数。规则细节见
+[`noise-policy.md`](noise-policy.md)。
+
+**`noise_report` 只能由管道产生。** 走模型时提示词要求模型抄写一遍，但解析成功后会被
+`filter_noise` 的真实统计覆盖：模型自报的数字一律不采信，只为让输出结构完整。
 
 ### 为什么 `decisions` 不能为空
 

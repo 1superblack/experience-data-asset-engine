@@ -1,0 +1,21 @@
+{
+  "id": "chatcmpl-synthetic",
+  "object": "chat.completion",
+  "created": 1777000000,
+  "model": "demo-model",
+  "choices": [
+    {
+      "index": 0,
+      "finish_reason": "stop",
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"schema_version\": 1,\n  \"title\": \"降噪与蒸馏的边界划分\",\n  \"project\": \"数据资产引擎\",\n  \"summary\": \"把降噪做成确定性四层过滤、把语义判断留给蒸馏，才能既可审计又不丢信息。\",\n  \"background\": \"对话要变成可复用资产，先得把噪声挡住；但哪些内容算噪声，规则做不到全。\",\n  \"diagnosis\": [\n    \"系统上下文与工具输出占了输入的大头，且几乎不携带决策信息\",\n    \"凭据会随机出现在任意消息里，必须在截断前替换\",\n    \"语义级冲突（结论被推翻）无法用正则判断\"\n  ],\n  \"decisions\": [\n    {\n      \"decision\": \"四层降噪只做确定性识别，语义冲突留给蒸馏阶段\",\n      \"reason\": \"规则可复现、可审计；强行用正则判断语义会既误杀又不可解释\",\n      \"rejected\": [\n        \"用正则猜「结论是否被推翻」：误杀率高且无法给出证据\",\n        \"完全不做降噪、把原文丢给模型：成本高且会把工具日志写进知识库\"\n      ]\n    },\n    {\n      \"decision\": \"noise_report 由管道覆盖，不采信模型自报\",\n      \"reason\": \"统计值是管道产出，模型没有能力知道真实计数\",\n      \"rejected\": []\n    }\n  ],\n  \"evidence\": [\n    \"200 条合成样本：保留 45 条，输入正文约 48.7k 字符，保留约 1.4k 字符\",\n    \"7 个计数器满足 input == kept + system + tool + duplicate + dead\"\n  ],\n  \"reusable\": [\n    \"过滤规则要带不变式（每条消息只进一个桶），否则统计永远对不上\",\n    \"脱敏必须在截断之前做，否则密钥可能被切成两半无法匹配\"\n  ],\n  \"risks\": [\n    \"注入标记整条丢弃，可能误杀讨论这些标记的用户消息\",\n    \"近似重复用相似度阈值，边界样本仍需人工抽查\"\n  ],\n  \"todo\": [\n    \"用真实会话灰度验证 200 条样本的阈值是否合适\"\n  ],\n  \"noise_report\": {\n    \"input_messages\": 2,\n    \"kept_messages\": 2,\n    \"system_noise\": 0,\n    \"tool_noise\": 0,\n    \"duplicate_topics\": 0,\n    \"dead_ends\": 0,\n    \"redactions\": 0\n  },\n  \"content_volatility\": \"evolving\",\n  \"status\": \"有效\",\n  \"review_after\": \"2027-01-25\"\n}"
+      }
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 100,
+    "completion_tokens": 200,
+    "total_tokens": 300
+  }
+}

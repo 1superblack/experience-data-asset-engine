@@ -31,7 +31,7 @@ metadata:
 
 ## 当前实现状态（0.1.0）
 
-本版本只交付第一阶段的骨架，可用于**配置 vault、自检环境、校验输入数据协议**。已实现：
+已实现到「降噪 + 蒸馏」：能把会话压成合格的知识笔记输入，但**还不会写入 vault**。
 
 | 能力 | 入口 | 状态 |
 |---|---|---|
@@ -39,19 +39,26 @@ metadata:
 | 环境自检 | `cli.py doctor` | 已实现 |
 | 标准化会话协议 | `adapters/normalized_json.py` | 已实现 |
 | Codex JSONL / `.jsonl.zst` 输入 | `adapters/codex_jsonl.py` | 已实现 |
-| 蒸馏笔记协议 | `models.py` | 已实现 |
+| 四层降噪 + 隐私脱敏 | `noise.py::filter_noise` / `redact_sensitive` | 已实现（库调用） |
+| 蒸馏执行器（含无模型 staging） | `distill.py::prepare_distillation` | 已实现（库调用） |
 | 归档写入、检索过滤、复核 | `archive` / `validate` / `status` / `recheck` / `uninstall` | 未实现，返回退出码 4 |
 
-调用未实现的子命令时，脚本会明确提示「尚未实现」。**不要向用户声称归档已经完成。**
+调用未实现的子命令时，脚本会明确提示「尚未实现」。**不要向用户声称归档已经完成**——
+当前没有把任何 Markdown 写进归档目录的能力。
 
 ## 主流程
 
 1. `doctor` 读环境，确认 vault、归档目录、状态目录可用；已有配置时不要再 `init`。
 2. 用 `adapters` 把来源会话标准化为 `NormalizedSession`（字段见
    `references/output-schema.md`）。
-3. 按蒸馏协议产出 `DistilledNote` JSON：每个决策必须带理由，**所有决策汇总后至少写一条
-   被否决方案**（`rejected` 全空会被校验直接拒绝）。
-4. 交给写入端（后续版本）落盘；当前版本只做协议校验。
+3. `filter_noise(session)` 做四层降噪：系统上下文、工具输出、重复主题、死路短句被丢弃，
+   凭据替换为 `[已脱敏]`；返回新会话 + 7 项统计（口径见 `references/noise-policy.md`）。
+4. `prepare_distillation(session, config)` 产出 `DistilledNote`：
+   - 没配模型：只在 `staging/` 写 `<state_key>.request.md` 与 `.schema.json`，
+     抛 `DistillationRequired`（退出码 3），由 Agent 或人工补完；
+   - 配了模型：走 OpenAI-compatible 接口，输出必须通过全量协议校验，
+     任何失败都失败关闭，绝不降级为原文。
+5. 写入 vault 仍未实现（后续版本）；现在没有「归档」这个动作。
 
 ## CLI 入口
 
@@ -81,3 +88,5 @@ python scripts/cli.py doctor --vault /path/to/vault
 |---|---|
 | 配置字段、环境变量、退出码、doctor 诊断码 | `references/config.md` |
 | 会话与蒸馏笔记的 JSON 协议、校验规则 | `references/output-schema.md` |
+| 四层降噪边界、7 项统计口径、脱敏规则 | `references/noise-policy.md` |
+| 蒸馏提示词契约、staging 产物、失败关闭清单 | `references/distill-prompt.md` |

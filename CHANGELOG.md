@@ -4,7 +4,7 @@
 
 ## [0.1.0] - 2026-10-27
 
-第一阶段（骨架与协议），不含实际归档写入。
+第一阶段（骨架、协议、降噪与蒸馏），不含实际归档写入。
 
 ### 命名
 
@@ -15,6 +15,22 @@
 - 原 `ai-conversation-knowledge-distiller` / `archive-to-obsidian` 标识已全部弃用。
 
 ### 新增
+
+- **四层降噪与脱敏**（`noise.py`）：输入噪音（系统角色、环境注入、空白、纯确认、连续回显）、
+  执行噪音（工具角色/调用/输出、长日志）、知识噪音（确定性重复 + 显式失败短句）、
+  安全噪音（密钥/令牌/口令/Cookie/Authorization/私钥 → `[已脱敏]`）。
+  返回新会话与 7 项统计，且满足 `input == kept + system + tool + duplicate + dead`。
+  单条 > 4,000 字符截断（脱敏之后截断）。
+- **蒸馏执行器**（`distill.py`）：`prepare_distillation` / `validate_distilled_note` /
+  `note_json_schema`。无模型时只在 `staging/` 写 `<state_key>.request.md` 与 `.schema.json`
+  并抛 `DistillationRequired`（退出码 3）；有模型时走 OpenAI-compatible `chat/completions`，
+  输出必须通过全量协议校验，模型自报的 `noise_report` 会被真实统计覆盖。
+- 200 条合成噪声样本（`tests/fixtures/noisy-session-200.json`）：200 → 保留 45，
+  系统 55 / 工具 50 / 重复 30 / 死路 20 / 脱敏 4，保留正文约 1.4k 字符。
+- 文档：`references/noise-policy.md`（四层边界与统计口径）、
+  `references/distill-prompt.md`（提示词契约与失败关闭清单）。
+
+### 骨架与协议
 
 - Skill 元数据：`SKILL.md`（slug `experience-data-asset-engine`）、`agents/openai.yaml`。
 - CLI 骨架：`init`、`doctor`，以及 `archive` / `validate` / `status` / `recheck` /
@@ -58,6 +74,11 @@
 
 ### 已知限制
 
-- 尚无归档写入、降噪、蒸馏执行、检索过滤与打包发布能力。
+- **尚无写入 vault、检索过滤、复核与打包发布能力**：`archive` / `validate` / `status` /
+  `recheck` / `uninstall` 仍是占位，返回退出码 4。
+- 降噪与蒸馏目前只能**通过 Python 调用**（`filter_noise` / `prepare_distillation`），
+  还没有接进 CLI 的 `archive` 流程。
+- 语义级冲突（「这个结论后来被推翻了」）不在降噪层判断，留给蒸馏阶段；
+  口径见 `references/noise-policy.md`。
 - `quick_validate.py` 只接受 `name` / `description` / `license` / `allowed-tools` /
   `metadata` 五个顶层键，因此 `slug`、`displayName`、`version` 放在 `metadata` 下。
