@@ -14,9 +14,9 @@
 | 子路径 | 用途 | 本版本是否使用 |
 |---|---|---|
 | `config.json` | 配置 | 是 |
-| `state.json` | 会话幂等状态（来源 + 会话 ID -> 笔记路径 + 内容哈希） | 后续版本 |
-| `audit/` | 每次写入的审计 JSON | 后续版本 |
-| `staging/` | 无模型时生成的蒸馏请求 | 后续版本 |
+| `state.json` | 会话幂等状态（来源 + 会话 ID -> 笔记路径 + 内容哈希） | 是（写入时维护） |
+| `audit/` | 每次写入的审计 JSON（`audit/write-audit.jsonl`） | 是（写入时追加） |
+| `staging/` | 无模型时生成的蒸馏请求（`<state_key>.request.md` + `.schema.json`） | 是（无模型归档时） |
 
 这些文件都在 `.` 开头的目录里，Obsidian 默认不展示，不会污染笔记列表。
 

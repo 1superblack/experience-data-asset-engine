@@ -4,7 +4,27 @@
 
 ## [0.1.0] - 2026-10-27
 
-第一阶段（骨架、协议、降噪与蒸馏），不含实际归档写入。
+首个可用版本：「导入 → 降噪 → 蒸馏 → 写入 → 校验 → 复核 → 卸载」主链路全部打通，
+全部通过 CLI 使用。**不含打包发布能力**（SkillHub 打包、GitHub 发布流水线未实现，
+仓库内没有发布产物）。
+
+### 文档与元数据（Gate 5）
+
+- **元数据统一**：`SKILL.md` 的 `metadata.displayName` 由「数据资产引擎」改为
+  「数据资产引擎｜经验资产化」，与 `agents/openai.yaml` 的 `interface.display_name` 一致；
+  `name` / `metadata.slug` 为 `experience-data-asset-engine`，`metadata.version` 为 `0.1.0`，
+  `license` 为 MIT。
+- **`SKILL.md` 收敛为五节**：触发条件 / 主流程 / 安全边界 / CLI 入口 / Reference 路由；
+  能力边界表保留「打包发布（SkillHub / GitHub）未实现」，不夸大能力。
+- **`README.md` 重写**：补 2 分钟快速开始、Codex `.jsonl` / `.jsonl.zst` 与 Markdown 手动导入
+  的输入说明、`dry-run` 与 staging 的差异对照、状态语义与「过期只过滤不删除」、
+  隐私与卸载说明；删除「archive 仍是退出码 4」「本版本没有写入能力」等已过期的旧陈述。
+- **协议文档对齐实现**：`references/config.md` 的状态目录三行由「后续版本」改为实际使用中；
+  `references/output-schema.md` 的 frontmatter 映射补 `tags` / `生成器` / `状态键`，
+  并注明写入端已实现。
+- **新增 `tests/test_skill_metadata.py`**：断言 frontmatter 六项元数据、slug/version/displayName
+  取值、`agents/openai.yaml` 与 `SKILL.md` 的 displayName 一致、README 关键小节齐备，
+  以及文档中不出现个人目录、用户名、账号等本机路径痕迹。不引入 PyYAML，frontmatter 用文本解析。
 
 ### 命名
 
@@ -33,7 +53,8 @@
 ### CLI 全链路（Gate 4）
 
 - **CLI 全部子命令可用**：`init` / `doctor` / `archive` / `validate` / `status` /
-  `recheck` / `uninstall`，退出码 0/1/2/3 各就各位，4 只保留给「尚未实现」语义。
+  `recheck` / `uninstall`，退出码收敛为 0/1/2/3；编号 `4` 已停用，没有任何子命令返回它
+  （仅保留编号，避免与历史脚本冲突）。
 - **archive**：按后缀识别 `.json` / `.jsonl` / `.jsonl.zst` / `.md`；
   有 provider 走「降噪 → 蒸馏 → 校验 → 写入」；无 provider 只写 staging 并返回 3；
   `--distilled` 跳过模型；`--dry-run` 不写 Markdown / state / audit / staging，连目录都不建。
@@ -79,7 +100,7 @@
 
 - Skill 元数据：`SKILL.md`（slug `experience-data-asset-engine`）、`agents/openai.yaml`。
 - CLI 骨架：`init`、`doctor`，以及 `archive` / `validate` / `status` / `recheck` /
-  `uninstall` 的占位入口（返回退出码 4，明确失败关闭）。
+  `uninstall` 的占位入口（Gate 1 阶段返回退出码 4，Gate 4 起已全部实现）。
 - 可移植 vault 配置：配置写入 `<vault>/.experience-data-asset-engine/config.json`，
   幂等且不覆盖已有配置；归档目录只允许 vault 内相对路径。
 - `doctor` 诊断：Python 版本、vault 与 `.obsidian`、归档目录存在性与可写性、状态目录可写性、

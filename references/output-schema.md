@@ -190,7 +190,7 @@ pending 候选（`<stem>.pending-<hash8>.md`）带同一章节，否则合并时
 
 ## 3. 与 Obsidian frontmatter 的映射
 
-写入端（后续版本）按此映射生成 frontmatter，不改字段名：
+写入端（`writer.py`）按此映射生成 frontmatter，不改字段名：
 
 | DistilledNote | frontmatter |
 |---|---|
@@ -199,9 +199,11 @@ pending 候选（`<stem>.pending-<hash8>.md`）带同一章节，否则合并时
 | `status` | `状态` |
 | `content_volatility` | `内容时效`（`stable` → 稳定，`evolving` → 演进，`volatile` → 易变，`progress` → 进度） |
 | `review_after` | `review_after` |
-| — | `created` / `updated` / `valid_from`（写入当天） |
+| — | `created` / `updated` / `valid_from`（写入当天，本地日期） |
 | — | `取代自` / `取代为`（双向链接） |
+| — | `tags`（`对话存档` + 项目名 + 时效标签） |
 | — | `来源` / `会话ID` / `内容哈希` |
+| — | `生成器` / `状态键`（`sha256(source + ":" + session_id)`，用于归属判定与幂等） |
 
 ## 4. 失败关闭清单
 

@@ -4,7 +4,7 @@ description: 把 AI 对话与项目过程转化为可复用、可追溯、可治
 license: MIT
 metadata:
   slug: experience-data-asset-engine
-  displayName: 数据资产引擎
+  displayName: 数据资产引擎｜经验资产化
   version: 0.1.0
 ---
 
@@ -12,54 +12,65 @@ metadata:
 
 > 把 AI 对话与项目过程转化为可复用、可追溯、可治理的经验数据资产。
 
-## 目标
+一份笔记只保留这几件事：当时要解决什么、查明了哪些事实、做了哪个决策以及为什么、
+哪些方案被否决、证据在哪、下次能复用哪条经验。原文只留来源指针，不进知识库正文。
 
-把一次对话压缩成一份可复用、可追溯、会自动老化的知识笔记：背景、诊断、决策与理由、
-被否决方案、证据、可复用经验、风险、待办。原文只作为来源指针保留，不进知识库正文。
+## 触发条件
 
-## 何时使用
+该用：
 
 - 用户说「归档这段对话」「把这次讨论存进 Obsidian」「整理成可复用的经验」。
 - 用户要回顾历史结论，并希望默认看不到已过时、已被取代的内容。
-- 用户提供一个 Codex 会话文件（`.jsonl` / `.jsonl.zst`）或手动整理的会话 Markdown。
+- 用户提供 Codex 会话文件（`.jsonl` / `.jsonl.zst`）、标准化会话 `.json`，或按版式整理好的会话 Markdown。
 
-以下情况不要使用：
+不该用：
 
 - 用户只是要导出聊天原文（那是导出工具，不是资产化工具）。
 - 用户要求自动解密客户端数据库、抓取聊天窗口或搬运凭据。
 - 用户要求删除、移动或批量改写已有笔记。
 
-## 当前实现状态（0.1.0）
-
-主链路已打通：导入 → 降噪 → 蒸馏 → 写入 → 校验 → 复核 → 卸载。全部通过 CLI 可用。
-
-| 能力 | 入口 | 状态 |
-|---|---|---|
-| 初始化 vault 配置 | `init` | 已实现 |
-| 环境自检 | `doctor` | 已实现 |
-| 会话输入 | `archive --input`：`.json` / `.jsonl` / `.jsonl.zst` / `.md` | 已实现 |
-| 四层降噪 + 隐私脱敏 | `noise.py`（`archive` 内部调用） | 已实现 |
-| 蒸馏（含无模型 staging） | `distill.py`（`archive` 内部调用） | 已实现 |
-| 写入 vault（幂等 + 冲突 pending） | `writer.py` | 已实现 |
-| 校验 / 状态 / 到期复核 | `validate` / `status` / `recheck` | 已实现 |
-| 卸载（只删状态目录） | `uninstall --yes` | 已实现 |
-| 打包发布（SkillHub / GitHub） | — | 未实现（Gate 5） |
-
 ## 主流程
 
-1. `init --vault <vault>`：写入配置，创建归档与状态目录（幂等，不覆盖）。
-2. `archive --input <file>`：按后缀自动识别来源，做四层降噪后进入蒸馏。
+1. `init --vault <vault>`：写入配置，创建归档与状态目录（幂等，不覆盖已有配置）。
+2. `archive --input <file>`：按后缀自动识别来源（`.json` / `.jsonl` / `.jsonl.zst` / `.md`），
+   做四层降噪后进入蒸馏。
    - 有模型：降噪 → 蒸馏 → 全量协议校验 → 写入 vault；
-   - 无模型：只写 `staging/<state_key>.request.md` 与 `.schema.json`，
-     退出码 3，**不写任何正式笔记**；Agent 补完蒸馏后用 `--distilled` 归档。
+   - 无模型：只写 `staging/<state_key>.request.md` 与 `.schema.json`，退出码 3，
+     **不写任何正式笔记**；Agent 补完蒸馏后用 `--distilled` 归档。
 3. `archive --distilled <note.json>`：只校验并写入，不调用模型。
 4. `archive --dry-run`：只演算，不写 Markdown / state / audit / staging，连目录都不建。
 5. `validate` / `status` / `recheck --due`：只读，零写入。
 6. `recheck --note <path> --status <状态>`：只原子改 frontmatter 的「状态」一行。
 7. `uninstall --yes`：只删 `<vault>/.experience-data-asset-engine/`，绝不删 Markdown。
 
-**不要向用户声称做了这些没做的事**：打包发布 SkillHub、GitHub 上线、修改非本工具笔记、
-删除任何 Markdown。
+当前能力边界（`0.1.0`）——下表是事实，不要外推：
+
+| 能力 | 入口 | 状态 |
+|---|---|---|
+| 初始化 vault 配置 | `init` | 已实现 |
+| 环境自检 | `doctor` | 已实现 |
+| 会话输入 | `archive --input` | 已实现 |
+| 四层降噪 + 隐私脱敏 | `noise.py`（`archive` 内部调用） | 已实现 |
+| 蒸馏（含无模型 staging） | `distill.py`（`archive` 内部调用） | 已实现 |
+| 写入 vault（幂等 + 冲突 pending） | `writer.py` | 已实现 |
+| 校验 / 状态 / 到期复核 | `validate` / `status` / `recheck` | 已实现 |
+| 卸载（只删状态目录） | `uninstall --yes` | 已实现 |
+| 打包发布（SkillHub / GitHub 上架流水线） | — | **未实现**，仓库内没有发布产物 |
+
+**不要向用户声称做过这些没做的事**：打包发布到 SkillHub 或 GitHub、修改非本工具创建的笔记、
+删除任何 Markdown、把对话原文当笔记写入。
+
+## 安全边界
+
+- **只写真 vault**：`init` 在任何落盘前校验 `.obsidian`；普通目录直接拒绝，磁盘零写入。
+- **不写原文**：主笔记只允许短证据引用和来源指针，禁止整段复制对话。
+- **不覆盖用户笔记**：同名笔记归属不明时只生成 `.pending-<hash8>.md` 候选。
+- **不删除**：任何命令都不删除 Markdown；过期只做检索端过滤。
+- **不出 vault**：所有写入限制在 vault 与归档子目录内，路径逃逸一律失败关闭。
+- **session_id 不进路径**：幂等键统一用 `sha256(source + ":" + session_id)`。
+- **不存凭据**：API Key 只从环境变量读取，不落盘；敏感值一律替换为 `[已脱敏]`，
+  标题、staging 请求、provider 提示词三处口径一致。
+- **失败关闭**：缺依赖、缺字段、来源格式不认识时报错退出，不降级为「原文照抄」。
 
 ## CLI 入口
 
@@ -76,19 +87,7 @@ python scripts/cli.py uninstall --vault /path/to/vault --yes
 ```
 
 安装后也可用控制台入口 `experience-data-asset-engine`。退出码：0 成功 / 1 校验或配置失败 /
-2 需要补充输入 / 3 需要蒸馏。参数矩阵见 `references/config.md`。
-
-## 安全边界
-
-- **只写真 vault**：`init` 在任何落盘前校验 `.obsidian`；普通目录直接拒绝，磁盘零写入。
-- **不写原文**：主笔记只允许短证据引用和来源指针，禁止整段复制对话。
-- **不覆盖用户笔记**：同名笔记归属不明时只生成 `.pending.md`。
-- **不删除**：任何命令都不删除 Markdown；过期只做检索端过滤。
-- **不出 vault**：所有写入限制在 vault 与归档子目录内，路径逃逸一律失败关闭。
-- **session_id 不进路径**：幂等键统一用 `sha256(source + ":" + session_id)`。
-- **不存凭据**：API Key 只从环境变量读取，不落盘；敏感值一律替换为 `[已脱敏]`，
-  标题、staging 请求、provider 提示词三处口径一致。
-- **失败关闭**：缺依赖、缺字段、来源格式不认识时报错退出，不降级为「原文照抄」。
+2 需要补充输入 / 3 需要蒸馏。参数矩阵与诊断码见 `references/config.md`。
 
 ## Reference 路由
 
@@ -98,3 +97,4 @@ python scripts/cli.py uninstall --vault /path/to/vault --yes
 | 会话与蒸馏笔记的 JSON 协议、校验规则 | `references/output-schema.md` |
 | 四层降噪边界、7 项统计口径、脱敏规则 | `references/noise-policy.md` |
 | 蒸馏提示词契约、staging 产物、失败关闭清单 | `references/distill-prompt.md` |
+| 状态语义、复核周期、到期只列不改 | `references/expiry-policy.md` |
