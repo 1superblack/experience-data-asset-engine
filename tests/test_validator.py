@@ -26,7 +26,8 @@ from experience_data_asset_engine.writer import GENERATOR, render_frontmatter
 
 PROJECT = "体验数据资产引擎"
 
-#: fixture 里「默认不可检索」的笔记：过期、被取代、非法状态、无法解析。
+#: fixture 里「默认不可检索」的笔记：过期、被取代、非法状态、无法解析、
+#: 以及字段校验不过关（缺必填字段 / 非法日期）的——「可检索」不得比「可校验」宽松。
 DEFAULT_HIDDEN = {
     "已过时结论",
     "已被取代结论",
@@ -35,6 +36,8 @@ DEFAULT_HIDDEN = {
     "无回写笔记",
     "非法状态笔记",
     "坏YAML笔记",
+    "缺字段笔记",
+    "非法日期笔记",
 }
 
 
@@ -135,8 +138,34 @@ def test_scan_reports_skipped_count(config: AppConfig):
     scan = scan_notes(config)
     assert scan.skipped == len(scan.records) - len(scan.searched)
     assert scan.skipped > 0
-    # include_stale=True 时，只剩「无法解析 / 非法状态」被跳过
-    assert scan_notes(config, include_stale=True).skipped == len(scan.unparseable) + 1
+
+    full = scan_notes(config, include_stale=True)
+    searched = {record.path for record in full.searched}
+    blocked = {record.path.stem for record in full.records if record.path not in searched}
+
+    # include_stale=True 也不是「全放行」：解析失败、非法状态、缺字段、非法日期仍然不进
+    assert blocked == {"坏YAML笔记", "非法状态笔记", "缺字段笔记", "非法日期笔记"}
+    assert full.skipped == len(blocked)
+
+
+def test_missing_field_note_is_not_searchable(config: AppConfig):
+    """只写了「状态: 有效」、缺其余必填字段的笔记，不得进默认检索。"""
+    path = config.vault / "04-对话存档" / PROJECT / "缺字段笔记.md"
+
+    assert path.exists(), "fixture 应包含该样本"
+    assert "缺字段笔记" not in stems(iter_notes(config))
+    assert "缺字段笔记" not in stems(iter_notes(config, include_stale=True))
+    # 但它不能静默消失：校验报告里必须看得见
+    issues = [issue for issue in validate_vault(config).missing_fields if issue.path == path]
+    assert {issue.field for issue in issues} == {"内容哈希", "状态键"}
+
+
+def test_invalid_date_note_is_not_searchable(config: AppConfig):
+    path = config.vault / "04-对话存档" / PROJECT / "非法日期笔记.md"
+
+    assert "非法日期笔记" not in stems(iter_notes(config))
+    assert "非法日期笔记" not in stems(iter_notes(config, include_stale=True))
+    assert [issue for issue in validate_vault(config).missing_fields if issue.path == path]
 
 
 def test_validation_report_carries_skipped_count(config: AppConfig):
@@ -367,6 +396,59 @@ def test_due_notes_respect_stale_filter(config: AppConfig):
 def test_due_notes_reject_implicit_today(config: AppConfig):
     with pytest.raises(InputError, match="today"):
         list(iter_due_notes(config, "2026-10-27"))  # type: ignore[arg-type]
+
+
+def test_due_notes_skip_broken_review_after_instead_of_raising(config: AppConfig):
+    """单篇 review_after 坏了：跳过它，其余照常产出，不中断整个复核列表。"""
+    broken = put_note(
+        config,
+        "坏复核日期笔记",
+        note_text("坏复核日期笔记", review_after="下个月"),
+    )
+    healthy_due = config.vault / "04-对话存档" / PROJECT / "待复核结论.md"
+
+    due = list(iter_due_notes(config, date(2026, 10, 27)))
+
+    assert broken not in due, "坏日期的笔记不得进到期候选"
+    assert healthy_due in due, "同批其它到期笔记必须照常产出，不能被一篇坏笔记拖停"
+    # 它也不能静默消失：validator 要报 invalid_date
+    issues = [issue for issue in validate_vault(config).missing_fields if issue.path == broken]
+    assert codes(issues) == {"invalid_date"}
+
+
+# --- 待合并候选（pending） ---------------------------------------------------
+
+
+def test_pending_candidate_is_not_reported_as_bad_frontmatter(config: AppConfig):
+    """pending 是完整 Markdown 候选，不是坏 YAML，也不该混进 missing_fields。"""
+    pending = put_note(
+        config,
+        "冲突笔记.pending-abcdef12",
+        note_text("冲突笔记"),
+    )
+
+    report = validate_vault(config)
+
+    assert not [issue for issue in report.issues if issue.path == pending]
+    assert pending not in report.valid, "候选不是正式笔记，不该算 valid"
+    assert "冲突笔记.pending-abcdef12" not in stems(iter_notes(config))
+    assert "冲突笔记.pending-abcdef12" not in stems(iter_notes(config, include_stale=True))
+    # 计数上仍然可见
+    assert scan_notes(config).skipped > 0
+
+
+def test_legacy_json_pending_is_skipped_not_reported(config: AppConfig):
+    """旧版 JSON 指针 pending 同样只跳过、不进 missing_fields。"""
+    pending = put_note(
+        config,
+        "旧候选.pending-12345678",
+        '{\n  "待合并到": "旧候选.md"\n}\n',
+    )
+
+    report = validate_vault(config)
+
+    assert not [issue for issue in report.issues if issue.path == pending]
+    assert pending not in report.valid
 
 
 # --- 越界 -------------------------------------------------------------------

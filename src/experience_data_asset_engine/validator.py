@@ -33,7 +33,7 @@ from .config import STATE_DIRNAME, AppConfig, ensure_inside_vault, resolve_safel
 from .errors import ConfigError, DistillerError, InputError
 from .lifecycle import is_due, is_searchable
 from .models import STATUS_VALUES, VOLATILITY_LABELS
-from .writer import FRONTMATTER_FIELDS, parse_frontmatter
+from .writer import FRONTMATTER_FIELDS, PENDING_SUFFIX, parse_frontmatter
 
 #: 与写入端完全一致的必填字段（顺序无关，只用于存在性与类型检查）。
 REQUIRED_FIELDS: Final = FRONTMATTER_FIELDS
@@ -105,6 +105,15 @@ class NoteRecord:
     @property
     def ok(self) -> bool:
         return self.fields is not None and self.error is None
+
+    @property
+    def is_pending(self) -> bool:
+        """是否是写入端留下的待合并候选。
+
+        按文件名判定（``<stem>.pending-<hash>.md``），而不是靠 frontmatter 里
+        某个可选字段——候选人手删字段也不该因此被当成正式笔记。
+        """
+        return PENDING_SUFFIX in self.path.stem
 
     @property
     def stem(self) -> str:
@@ -241,12 +250,18 @@ def _split_records(
 ) -> tuple[tuple[NoteRecord, ...], int]:
     """按检索口径切分：返回 (可检索记录, 跳过数量)。
 
-    ``skipped`` 同时统计「过期/被取代」「非法状态」与「解析失败」——
-    两者都不该出现在检索结果里，但必须如实计数，不能静默消失。
+    ``skipped`` 统计所有不返回的情况：pending 候选、解析失败、非法状态、
+    过期/已取代、以及**字段校验不过关**。最后一条是关键——否则
+    「可检索」会比「可校验」更宽松，一篇只写了 ``状态: 有效`` 的残缺笔记
+    照样会被检索出来当成结论用。
     """
     searched: list[NoteRecord] = []
     skipped = 0
     for record in records:
+        if record.is_pending:
+            # 待合并候选不是正式笔记，不进检索；但必须计数，不能静默消失
+            skipped += 1
+            continue
         status = record.status
         if status is None:
             # 解析失败 / 缺状态：无法确认是否现行，宁可不返回，也不当成可用笔记
@@ -259,6 +274,11 @@ def _split_records(
             skipped += 1
             continue
         if not keep:
+            skipped += 1
+            continue
+        record_missing, record_status = _check_fields(record)
+        if record_missing or record_status:
+            # 缺必填字段、空字段、非法日期、非法身份字段：不返回，进校验报告
             skipped += 1
             continue
         searched.append(record)
@@ -467,6 +487,11 @@ def validate_vault(config: AppConfig, include_stale: bool = False) -> Validation
     field_ok: list[Path] = []
 
     for record in scan.records:
+        if record.is_pending:
+            # pending 是写入端留的待合并候选，不是正式笔记：
+            # 不校验它的字段（否则会以「候选不合规」的形式污染真问题），
+            # 也不静默丢弃——它已经计入 skipped。
+            continue
         if not record.ok:
             missing.append(record.error or Issue(record.path, "unparseable", "无法解析"))
             continue
@@ -509,5 +534,11 @@ def iter_due_notes(
         review_after = (record.fields or {}).get("review_after")
         if not isinstance(review_after, str) or not review_after.strip():
             continue
-        if is_due(review_after, today):
+        try:
+            due = is_due(review_after, today)
+        except InputError:
+            # 单篇 review_after 坏了不该让整个复核列表中断：
+            # 跳过它，由 validate_vault 报 invalid_date，其余照常产出。
+            continue
+        if due:
             yield record.path
