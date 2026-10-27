@@ -24,7 +24,10 @@
 
 ## 3. 可检索性
 
-| 状态 | 默认检索 | `--include-stale` |
+下表是**库内过滤口径**（`iter_notes()`，`validate` / `status` 共用），不是 CLI 的搜索能力：
+本工具没有 `search` / `query` 子命令，实际查询由你自己的 Obsidian 完成。
+
+| 状态 | 默认返回 | `--include-stale` |
 |---|---|---|
 | `有效` | 是 | 是 |
 | `待复核` | 是（优先级降低） | 是 |
@@ -50,12 +53,13 @@
 - 门槛设在 2 个不同词，是为了避免「这条笔记里出现了一次『标准』就判 stable」这种误判。
 - 这是**建议值**，不是结论：蒸馏时可以覆盖；分级只影响默认复核周期，不影响笔记内容。
 
-## 5. 与写入/检索的接线
+## 5. 与写入/统计的接线
 
 - `compute_review_after(valid_from, volatility)` 提供「按周期算日期」这个能力，但**目前没有
   接入归档主链路**：`writer.py` 直接写 `DistilledNote.review_after`，只校验 `YYYY-MM-DD` 格式，
   不会用 `content_volatility` 重算覆盖。要让它生效，必须由蒸馏端（人或 Agent）按上面的周期
   算好再填进 `review_after`。
 - 写入时：`content_volatility` 决定 frontmatter 的 `内容时效` 标签；`review_after` 原样落盘。
-- 检索时：`iter_notes(config, include_stale=False)` 只返回 `有效` / `待复核`。
+- 统计/校验时：`iter_notes(config, include_stale=False)` 只返回 `有效` / `待复核`，
+  `validate` / `status` 复用同一口径。
 - 复核时：`recheck --due` 用 `is_due(review_after, today)` 列出候选，**只列不改**。
