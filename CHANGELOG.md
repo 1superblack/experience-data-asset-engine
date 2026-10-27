@@ -30,6 +30,24 @@
 - 文档：`references/noise-policy.md`（四层边界与统计口径）、
   `references/distill-prompt.md`（提示词契约与失败关闭清单）。
 
+### CLI 全链路（Gate 4）
+
+- **CLI 全部子命令可用**：`init` / `doctor` / `archive` / `validate` / `status` /
+  `recheck` / `uninstall`，退出码 0/1/2/3 各就各位，4 只保留给「尚未实现」语义。
+- **archive**：按后缀识别 `.json` / `.jsonl` / `.jsonl.zst` / `.md`；
+  有 provider 走「降噪 → 蒸馏 → 校验 → 写入」；无 provider 只写 staging 并返回 3；
+  `--distilled` 跳过模型；`--dry-run` 不写 Markdown / state / audit / staging，连目录都不建。
+- **Markdown 手动导入**（`adapters/markdown.py`）：`# 标题` + `## 角色`；
+  角色别名中英文（用户/User/Human、助手/Assistant/Codex/Claude/AI）；代码块内的伪标题不算；
+  无法识别的角色、缺标题、空段落、标题前正文、多个一级标题一律失败关闭并报行号；
+  支持 BOM / CRLF；2MB 上限；`source` 走受控标识校验。
+- **validate / status**：复用 Gate 3 的校验与扫描，零写入。
+- **recheck**：`--due` 只列不改；`--note --status` 只原子替换 frontmatter 的「状态」一行，
+  保留正文与其它字段，拒绝 pending 候选、非本工具笔记与越界路径。
+- **uninstall**：必须 `--yes`，未加时退出码 2 且零删除；只删状态目录，绝不删 Markdown。
+- **pending 命名精确匹配**：只认 `<stem>.pending-<8位小写十六进制>.md` 与旧版
+  `<stem>.pending.md`；`release.pending-notes.md` 这类普通笔记不再被误判为候选。
+
 ### 骨架与协议
 
 - Skill 元数据：`SKILL.md`（slug `experience-data-asset-engine`）、`agents/openai.yaml`。
@@ -128,10 +146,10 @@
 
 ### 已知限制
 
-- **CLI 尚未接上**：`archive` / `validate` / `status` / `recheck` / `uninstall` 仍是占位，
-  返回退出码 4。`write_note` / `validate_vault` / `iter_notes` 目前只能通过 Python 调用。
-- 降噪与蒸馏目前只能**通过 Python 调用**（`filter_noise` / `prepare_distillation`），
-  还没有接进 CLI 的 `archive` 流程。
+- **打包发布未做**：SkillHub 打包、GitHub 发布流水线属于 Gate 5，当前没有发布产物。
+- **Markdown 导入只支持一种版式**：`# 标题` + `## 角色`。自由格式的导出文本需要先整理成
+  这个形状，否则会以「无法识别的角色标题」失败关闭（这是有意的，不做猜测式解析）。
+- **pending 候选需要人工合并**：写入冲突时只落可合并的 Markdown 候选，不会自动替换或删除原笔记。
 - 语义级冲突（「这个结论后来被推翻了」）不在降噪层判断，留给蒸馏阶段；
   口径见 `references/noise-policy.md`。
 - `quick_validate.py` 只接受 `name` / `description` / `license` / `allowed-tools` /

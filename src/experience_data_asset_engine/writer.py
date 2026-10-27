@@ -41,6 +41,10 @@ from .noise import redact_sensitive
 GENERATOR: Final = "experience-data-asset-engine"
 FRONTMATTER_FENCE: Final = "---"
 PENDING_SUFFIX: Final = ".pending"
+#: 待合并候选的**精确**文件名：``<stem>.pending-<8位小写十六进制>.md``，
+#: 以及旧版 ``<stem>.pending.md``。用精确匹配而不是 ``".pending" in stem``，
+#: 否则 ``release.pending-notes.md`` 这种普通笔记会被误判成候选。
+_PENDING_NAME_RE: Final = re.compile(r"^.+\.pending(?:-[0-9a-f]{8})?\.md$")
 STATE_SCHEMA_VERSION: Final = 1
 
 #: 写入动作。
@@ -472,7 +476,7 @@ def _append_audit(config: AppConfig, record: Mapping[str, Any]) -> Path:
 # --- 原子写入 ---------------------------------------------------------------
 
 
-def _write_text_atomic(path: Path, text: str) -> Path:
+def write_text_atomic(path: Path, text: str) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp_name = tempfile.mkstemp(dir=str(path.parent), prefix=".edae-", suffix=".md.tmp")
     tmp_path = Path(tmp_name)
@@ -510,6 +514,20 @@ def _pending_path(target: Path, content_hash: str) -> Path:
     """
     suffix = target.suffix or ".md"
     return target.with_name(f"{target.stem}{PENDING_SUFFIX}-{content_hash[:8]}{suffix}")
+
+
+def is_pending_filename(name: str) -> bool:
+    """文件名是否是写入端留下的待合并候选（精确匹配）。
+
+    只认两种形态：
+
+    - ``<stem>.pending-<8位小写十六进制>.md``（当前格式）
+    - ``<stem>.pending.md``（旧版格式）
+
+    不能用 ``".pending" in stem`` 这种模糊判断：``release.pending-notes.md``
+    是用户的普通笔记，被误判成候选后会在校验与检索里被静默跳过。
+    """
+    return bool(_PENDING_NAME_RE.match(name))
 
 
 # --- 主入口 -----------------------------------------------------------------
@@ -575,7 +593,7 @@ def write_note(
         text = render_note(note, session, content_hash, created, today, title, project)
         if dry_run:
             return WriteResult(target, ACTION_UPDATED, content_hash, True)
-        _write_text_atomic(target, text)
+        write_text_atomic(target, text)
         _record_success(
             config, state, state_key, target, note, session, content_hash, today, ACTION_UPDATED
         )
@@ -584,7 +602,7 @@ def write_note(
     text = render_note(note, session, content_hash, today, today, title, project)
     if dry_run:
         return WriteResult(target, ACTION_CREATED, content_hash, True)
-    _write_text_atomic(target, text)
+    write_text_atomic(target, text)
     _record_success(
         config, state, state_key, target, note, session, content_hash, today, ACTION_CREATED
     )
@@ -678,7 +696,7 @@ def _write_pending(
         safe_component(note.title, "标题"),
         safe_component(note.project, "项目名"),
     )
-    _write_text_atomic(chosen, text)
+    write_text_atomic(chosen, text)
     _append_audit(
         config,
         {

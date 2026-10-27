@@ -687,7 +687,7 @@ def test_write_uses_local_date_for_created(config: AppConfig, monkeypatch: pytes
 
 def test_atomic_write_leaves_no_temp_file(tmp_path: Path):
     target = tmp_path / "note.md"
-    writer._write_text_atomic(target, "内容\n")
+    writer.write_text_atomic(target, "内容\n")
     assert target.read_text(encoding="utf-8") == "内容\n"
     assert list(tmp_path.glob(".edae-*")) == []
 
@@ -701,7 +701,7 @@ def test_atomic_write_keeps_original_when_replace_fails(tmp_path: Path, monkeypa
 
     monkeypatch.setattr(writer.os, "replace", boom)
     with pytest.raises(OSError, match="模拟磁盘写入失败"):
-        writer._write_text_atomic(target, "新内容\n")
+        writer.write_text_atomic(target, "新内容\n")
 
     assert target.read_text(encoding="utf-8") == "旧内容\n"
     assert list(tmp_path.glob(".edae-*")) == []

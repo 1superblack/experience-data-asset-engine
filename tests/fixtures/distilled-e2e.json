@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "title": "E2E 归档样本",
+  "project": "E2E工程",
+  "summary": "用 --distilled 直接把一份已校验的经验笔记写进 vault，不调用模型。",
+  "background": "端到端链路需要一个稳定的合成蒸馏结果，避免测试依赖网络与模型。",
+  "diagnosis": [
+    "手动 Markdown 会话没有时间戳，导入时用文件 mtime 兜底",
+    "pending 候选不是正式笔记，检索与状态统计都要单独计数"
+  ],
+  "decisions": [
+    {
+      "decision": "端到端测试用 --distilled 注入固定笔记",
+      "reason": "只有把模型调用排除掉，才能断言写入、校验、复核的行为本身",
+      "rejected": [
+        "在测试里起一个假模型服务跑完整链路：会把写入测试耦合到 HTTP 细节"
+      ]
+    }
+  ],
+  "evidence": [
+    "同一份输入 + 同一份蒸馏结果连续归档两次，第二次是 skipped",
+    "uninstall --yes 之后 Markdown 字节不变"
+  ],
+  "reusable": [
+    "把「写入」与「蒸馏」拆成两段，测试才能各自稳定"
+  ],
+  "risks": [
+    "review_after 故意设成 2020-01-01，用来让 recheck --due 稳定命中"
+  ],
+  "todo": [
+    "真实会话灰度时确认 review_after 的计算是否合适"
+  ],
+  "noise_report": {
+    "input_messages": 6,
+    "kept_messages": 6,
+    "system_noise": 0,
+    "tool_noise": 0,
+    "duplicate_topics": 0,
+    "dead_ends": 0,
+    "redactions": 0
+  },
+  "content_volatility": "evolving",
+  "status": "有效",
+  "review_after": "2020-01-01"
+}

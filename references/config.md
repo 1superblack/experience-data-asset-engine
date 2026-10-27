@@ -125,10 +125,26 @@
 | 码 | 含义 |
 |---|---|
 | `0` | 成功 |
-| `1` | 校验或配置失败（含 vault 不存在、配置损坏、路径越界） |
-| `2` | 需要用户补充输入（缺 `--vault`、未知子命令、无子命令） |
-| `3` | 需要蒸馏（预留：未配置模型时由 `archive` 返回） |
-| `4` | 子命令尚未实现 |
+| `1` | 校验或配置失败（含 vault 不存在、配置损坏、路径越界、输入后缀不认识） |
+| `2` | 需要用户补充输入（缺 `--vault` / `--input`、`recheck` 参数不成对、`uninstall` 未加 `--yes`） |
+| `3` | 需要蒸馏（未配置模型，`archive` 只生成了 staging） |
+| `4` | 保留给「子命令尚未实现」；Gate 4 起没有任何子命令会返回它 |
+
+## CLI 子命令矩阵
+
+| 命令 | 关键参数 | 写入行为 | 退出码 |
+|---|---|---|---|
+| `init` | `--vault` `--archive-dir` | 写配置 + 建归档/状态目录（幂等） | 0 / 1 / 2 |
+| `doctor` | `--vault` | 只写探针（`.edae-probe-*`），立即删除 | 0 / 1 |
+| `archive` | `--input` `--distilled` `--dry-run` `--include-stale` | 无 `--dry-run` 时才写 Markdown / state / audit | 0 / 1 / 3 |
+| `validate` | `--vault` `--include-stale` | 零写入 | 0 / 1 |
+| `status` | `--vault` | 零写入 | 0 / 1 |
+| `recheck --due` | `--include-stale` | 零写入，只列到期候选 | 0 / 1 |
+| `recheck --note --status` | `--note` `--status` | 只改一篇笔记的 `状态` 行（原子替换） | 0 / 1 / 2 |
+| `uninstall` | `--vault` `--yes` | 只删 `<vault>/.experience-data-asset-engine/`，绝不删 Markdown | 0 / 1 / 2 |
+
+`archive` 的输入按后缀自动识别：`.json`（标准化会话）、`.jsonl` / `.jsonl.zst`（Codex）、
+`.md`（手动导入）。`--distilled` 给了就跳过模型调用；`--dry-run` 一个字节都不写。
 
 ## 安全边界
 

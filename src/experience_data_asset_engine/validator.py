@@ -33,7 +33,14 @@ from .config import STATE_DIRNAME, AppConfig, ensure_inside_vault, resolve_safel
 from .errors import ConfigError, DistillerError, InputError
 from .lifecycle import is_due, is_searchable
 from .models import STATUS_VALUES, VOLATILITY_LABELS
-from .writer import FRONTMATTER_FIELDS, PENDING_SUFFIX, parse_frontmatter
+from .writer import (
+    FRONTMATTER_FENCE,
+    FRONTMATTER_FIELDS,
+    GENERATOR,
+    is_pending_filename,
+    parse_frontmatter,
+    write_text_atomic,
+)
 
 #: 与写入端完全一致的必填字段（顺序无关，只用于存在性与类型检查）。
 REQUIRED_FIELDS: Final = FRONTMATTER_FIELDS
@@ -110,10 +117,12 @@ class NoteRecord:
     def is_pending(self) -> bool:
         """是否是写入端留下的待合并候选。
 
-        按文件名判定（``<stem>.pending-<hash>.md``），而不是靠 frontmatter 里
-        某个可选字段——候选人手删字段也不该因此被当成正式笔记。
+        按文件名**精确**判定（``<stem>.pending-<8位小写十六进制>.md`` 或旧版
+        ``<stem>.pending.md``），而不是靠 frontmatter 里某个可选字段——候选人手删字段
+        也不该因此被当成正式笔记；同时也不能用 ``".pending" in stem``，
+        否则 ``release.pending-notes.md`` 这种普通笔记会被误杀。
         """
-        return PENDING_SUFFIX in self.path.stem
+        return is_pending_filename(self.path.name)
 
     @property
     def stem(self) -> str:
@@ -542,3 +551,65 @@ def iter_due_notes(
             continue
         if due:
             yield record.path
+
+
+# --- 只改状态字段（复核用） ---------------------------------------------------
+
+
+def set_note_status(config: AppConfig, path: Path, status: str) -> Path:
+    """把一篇**本工具生成的**正式笔记的 ``状态`` 字段改成新值。
+
+    原子性由「整文件重写 + 临时文件替换」保证；除 ``状态`` 那一行之外，
+    frontmatter 其余字段与正文都按原字节保留（换行风格也保留）。
+
+    拒绝：越界路径、不存在、pending 候选、非本工具笔记、非法状态、缺 ``状态`` 行。
+    """
+    if status not in STATUS_VALUES:
+        raise InputError(
+            f"非法状态 {status!r}；只允许 {' / '.join(STATUS_VALUES)}"
+        )
+    target = ensure_inside_vault(config.vault, Path(path))
+    if not target.is_file():
+        raise InputError(f"笔记不存在: {target}")
+    if is_pending_filename(target.name):
+        raise InputError(
+            f"{target.name} 是待合并候选（pending），不是正式笔记，不能直接改状态"
+        )
+
+    text = target.read_text(encoding="utf-8")
+    fields, _body = parse_frontmatter(text)
+    if fields.get("生成器") != GENERATOR:
+        raise InputError(
+            f"{target.name} 不是本工具生成的笔记（生成器字段不符），拒绝修改"
+        )
+
+    lines = text.splitlines(keepends=True)
+    if not lines or lines[0].strip() != FRONTMATTER_FENCE:
+        raise InputError(f"{target.name} 缺少 frontmatter 起始行，拒绝修改")
+    end = None
+    for index in range(1, len(lines)):
+        if lines[index].strip() == FRONTMATTER_FENCE:
+            end = index
+            break
+    if end is None:
+        raise InputError(f"{target.name} 的 frontmatter 没有结束行，拒绝修改")
+
+    for index in range(1, end):
+        raw = lines[index]
+        if raw.lstrip().startswith("状态:"):
+            if raw.endswith("\r\n"):
+                ending = "\r\n"
+            elif raw.endswith("\n"):
+                ending = "\n"
+            else:
+                ending = ""
+            new_line = f"状态: {status}{ending}"
+            if new_line == raw:
+                return target
+            lines[index] = new_line
+            break
+    else:
+        raise InputError(f"{target.name} 的 frontmatter 缺少「状态」字段，拒绝修改")
+
+    write_text_atomic(target, "".join(lines))
+    return target

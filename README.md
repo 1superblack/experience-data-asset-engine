@@ -118,15 +118,46 @@ note = prepare_distillation(session, load_config())   # 无模型时抛 Distilla
 
 ## 当前版本范围
 
-`0.1.0` 交付到「降噪 + 蒸馏」：
+`0.1.0` 已打通「导入 → 降噪 → 蒸馏 → 写入 → 校验 → 复核」这条主链路：
 
-- 已实现：CLI 骨架、vault 配置与 `doctor`、标准化会话与蒸馏笔记协议、
-  Codex `.jsonl` / `.jsonl.zst` 输入、四层降噪与脱敏、蒸馏执行器（含无模型 staging）。
-- **未实现**：写入 vault、检索过滤、复核、打包发布。
-  这几项目前**不可用**，`archive` / `validate` / `status` / `recheck` / `uninstall`
-  一律以退出码 4 失败关闭。
+- **输入**：Codex `.jsonl` / `.jsonl.zst`、标准化会话 `.json`、手写 `.md`。
+- **处理**：四层降噪与脱敏、模型无关蒸馏、无模型时只产出 staging。
+- **写入**：原子写、内容哈希幂等、冲突落 pending 候选、单会话只允许一篇正式笔记。
+- **只读命令**：`validate`（字段/状态/链接）、`status`（状态分布与计数）、
+  `recheck --due`（只列不改）。
+- **未实现**：SkillHub 打包发布、GitHub 发布流水线。
 
-见 [CHANGELOG.md](CHANGELOG.md)。
+CLI 全链路示例见下面的「命令行」一节。变更记录见 [CHANGELOG.md](CHANGELOG.md)。
+
+## 命令行
+
+```bash
+# 1. 初始化（幂等，不覆盖已有配置）
+experience-data-asset-engine init --vault /path/to/vault
+
+# 2. 归档一次会话（无模型时只写 staging，退出码 3）
+experience-data-asset-engine archive --input session.md --vault /path/to/vault
+
+# 3. 或者直接把蒸馏结果写进去（不调用模型）
+experience-data-asset-engine archive --input session.md \
+  --distilled note.json --vault /path/to/vault
+
+# 4. 演算不落盘
+experience-data-asset-engine archive --input session.md \
+  --distilled note.json --dry-run --vault /path/to/vault
+
+# 5. 只读检查
+experience-data-asset-engine validate --vault /path/to/vault
+experience-data-asset-engine status --vault /path/to/vault
+experience-data-asset-engine recheck --due --vault /path/to/vault
+
+# 6. 手改单篇状态（只动 frontmatter 的「状态」一行）
+experience-data-asset-engine recheck --note "04-对话存档/项目/笔记.md" \
+  --status 已过时 --vault /path/to/vault
+
+# 7. 卸载（只删状态目录，绝不删 Markdown）
+experience-data-asset-engine uninstall --vault /path/to/vault --yes
+```
 
 ## 卸载
 

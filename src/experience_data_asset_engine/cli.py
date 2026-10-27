@@ -1,31 +1,44 @@
-"""命令行入口。
+"""命令行入口（Gate 4 全链路）。
 
-退出码契约（与 references/config.md 一致）：
+退出码契约（与 ``references/config.md`` 一致）：
     0 成功
-    1 校验或配置失败
-    2 需要用户补充输入
-    3 需要蒸馏（未配置模型）
-    4 子命令尚未实现（Gate 1 只交付骨架）
+    1 校验或配置失败（含输入错误）
+    2 需要用户补充输入（缺参数、uninstall 未加 --yes）
+    3 需要蒸馏（未配置模型，只生成了 staging）
 """
 
 from __future__ import annotations
 
 import argparse
+import shutil
 import sys
 from collections.abc import Callable, Sequence
+from datetime import date
 from pathlib import Path
 
 from . import __version__
+from .adapters.codex_jsonl import load_codex_session
+from .adapters.markdown import load_markdown_session
+from .adapters.normalized_json import load_normalized_json
 from .config import (
-    DEFAULT_ARCHIVE_REL,
     CONFIG_FILENAME,
+    DEFAULT_ARCHIVE_REL,
     STATE_DIRNAME,
+    AppConfig,
     doctor,
+    ensure_inside_vault,
     init_config,
     load_config,
+    read_json_file,
+    resolve_safely,
     summarize_diagnostics,
 )
-from .errors import DistillerError
+from .distill import DistillationRequired, prepare_distillation, validate_distilled_note
+from .errors import ConfigError, DistillerError, InputError
+from .models import STATUS_VALUES, DistilledNote, NoiseReport, NormalizedSession
+from .noise import filter_noise
+from .validator import iter_due_notes, scan_notes, set_note_status, validate_vault
+from .writer import write_note
 
 PROG = "experience-data-asset-engine"
 
@@ -33,14 +46,19 @@ EXIT_OK = 0
 EXIT_FAILURE = 1
 EXIT_INPUT_REQUIRED = 2
 EXIT_DISTILLATION_REQUIRED = 3
-EXIT_NOT_IMPLEMENTED = 4
+EXIT_NOT_IMPLEMENTED = 4  # 保留常量；Gate 4 起没有子命令会返回它
+
+_SUPPORTED_INPUT_SUFFIXES = (".json", ".jsonl", ".jsonl.zst", ".md")
+
+
+# --- 参数 -------------------------------------------------------------------
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog=PROG,
-        description="把 AI 对话蒸馏为可追溯、带生命周期管理的 Obsidian 知识笔记。",
-        epilog="退出码：0 成功 / 1 校验或配置失败 / 2 需要用户补充输入 / 3 需要蒸馏 / 4 尚未实现。",
+        description="把 AI 对话与项目过程蒸馏为可复用、可追溯的经验数据资产（Obsidian 笔记）。",
+        epilog="退出码：0 成功 / 1 校验或配置失败 / 2 需要用户补充输入 / 3 需要蒸馏。",
     )
     parser.add_argument(
         "--version",
@@ -63,35 +81,133 @@ def build_parser() -> argparse.ArgumentParser:
     doctor_parser = subparsers.add_parser("doctor", help="环境自检与诊断")
     doctor_parser.add_argument("--vault", metavar="<path>", help="vault 根目录，省略则按环境变量定位")
 
-    archive_parser = subparsers.add_parser("archive", help="归档一次会话（尚未实现）")
-    archive_parser.add_argument("--input", metavar="<path>", help="会话文件（尚未实现）")
-    archive_parser.add_argument("--distilled", metavar="<path>", help="蒸馏结果 JSON（尚未实现）")
-    archive_parser.add_argument("--dry-run", action="store_true", help="只演算不写入（尚未实现）")
+    archive_parser = subparsers.add_parser("archive", help="归档一次会话（降噪 → 蒸馏 → 校验 → 写入）")
     archive_parser.add_argument(
-        "--include-stale", action="store_true", help="包含已过时/已被取代（尚未实现）"
+        "--input", metavar="<path>", help="会话文件：.json / .jsonl / .jsonl.zst / .md"
+    )
+    archive_parser.add_argument(
+        "--distilled", metavar="<path>", help="已蒸馏好的 DistilledNote JSON（给了就不调用模型）"
+    )
+    archive_parser.add_argument(
+        "--dry-run", action="store_true", help="只演算：不写 Markdown / state / audit / staging"
+    )
+    archive_parser.add_argument(
+        "--include-stale", action="store_true", help="统计时包含「已过时 / 已被取代」的笔记"
+    )
+    archive_parser.add_argument("--vault", metavar="<path>", help="vault 根目录")
+
+    validate_parser = subparsers.add_parser("validate", help="校验 vault 内笔记（只读）")
+    validate_parser.add_argument("--vault", metavar="<path>", help="vault 根目录")
+    validate_parser.add_argument(
+        "--include-stale", action="store_true", help="统计时包含「已过时 / 已被取代」的笔记"
     )
 
-    validate_parser = subparsers.add_parser("validate", help="校验 vault 笔记（尚未实现）")
-    validate_parser.add_argument("--vault", metavar="<path>", help="vault 根目录（尚未实现）")
+    status_parser = subparsers.add_parser("status", help="统计笔记状态（只读）")
+    status_parser.add_argument("--vault", metavar="<path>", help="vault 根目录")
 
-    subparsers.add_parser("status", help="统计笔记状态（尚未实现）")
+    recheck_parser = subparsers.add_parser("recheck", help="到期复核：只列候选，或手改单篇状态")
+    recheck_parser.add_argument("--due", action="store_true", help="列出到期候选（只列不改）")
+    recheck_parser.add_argument(
+        "--note", metavar="<path>", help="要改状态的笔记路径（必须在 vault 内）"
+    )
+    recheck_parser.add_argument(
+        "--status", metavar="<状态>", help=f"目标状态：{' / '.join(STATUS_VALUES)}"
+    )
+    recheck_parser.add_argument(
+        "--include-stale", action="store_true", help="列到期候选时包含过期笔记"
+    )
+    recheck_parser.add_argument("--vault", metavar="<path>", help="vault 根目录")
 
-    recheck_parser = subparsers.add_parser("recheck", help="到期复核（尚未实现）")
-    recheck_parser.add_argument("--due", action="store_true", help="列出到期笔记（尚未实现）")
-    recheck_parser.add_argument("--note", metavar="<path>", help="指定笔记（尚未实现）")
-    recheck_parser.add_argument("--status", metavar="<status>", help="目标状态（尚未实现）")
-
-    subparsers.add_parser("uninstall", help="只删除工具自身状态目录（尚未实现）")
+    uninstall_parser = subparsers.add_parser(
+        "uninstall", help="只删除工具自身状态目录（绝不删 Markdown）"
+    )
+    uninstall_parser.add_argument("--vault", metavar="<path>", help="vault 根目录")
+    uninstall_parser.add_argument(
+        "--yes", action="store_true", help="确认删除；不加这个参数时零删除"
+    )
 
     return parser
 
 
+# --- 小工具 -----------------------------------------------------------------
+
+
+def _err(message: str) -> None:
+    print(f"错误: {message}", file=sys.stderr)
+
+
+def _vault_of(args: argparse.Namespace) -> Path | None:
+    raw = getattr(args, "vault", None)
+    return Path(raw).expanduser() if raw else None
+
+
+def _config(args: argparse.Namespace) -> AppConfig:
+    return load_config(_vault_of(args))
+
+
+def _display(config: AppConfig, path: Path) -> str:
+    """尽量显示 vault 内相对路径，避免把宿主绝对路径刷进日志。"""
+    try:
+        return Path(path).resolve().relative_to(config.vault).as_posix()
+    except (ValueError, OSError):
+        return str(path)
+
+
+def _noise_line(report: NoiseReport) -> str:
+    return (
+        f"保留 {report.kept_messages}/{report.input_messages}"
+        f"｜系统 {report.system_noise}｜工具 {report.tool_noise}"
+        f"｜重复 {report.duplicate_topics}｜死路 {report.dead_ends}"
+        f"｜脱敏 {report.redactions}"
+    )
+
+
+def _load_session(path: Path) -> NormalizedSession:
+    name = path.name.lower()
+    if name.endswith(".jsonl") or name.endswith(".jsonl.zst"):
+        return load_codex_session(path)
+    if name.endswith(".json"):
+        return load_normalized_json(path)
+    if name.endswith(".md"):
+        return load_markdown_session(path)
+    raise InputError(
+        f"无法识别的输入后缀: {path.name}；只接受 {' / '.join(_SUPPORTED_INPUT_SUFFIXES)}"
+    )
+
+
+def _load_distilled(path: Path) -> DistilledNote:
+    if not path.exists():
+        raise InputError(f"蒸馏结果文件不存在: {path}")
+    return validate_distilled_note(read_json_file(path))
+
+
+def _print_write_result(
+    config: AppConfig,
+    note: DistilledNote,
+    result,
+    *,
+    distilled: bool = False,
+) -> None:
+    print(f"action: {result.action}")
+    print(f"path: {_display(config, result.path)}")
+    print(f"content_hash: {result.content_hash}")
+    print(f"noise: {_noise_line(note.noise_report)}")
+    if distilled:
+        print("来源: --distilled（未调用模型）")
+
+
+def _print_vault_line(config: AppConfig, include_stale: bool) -> None:
+    scan = scan_notes(config, include_stale=include_stale)
+    mode = "含" if include_stale else "不含"
+    print(f"vault: 检索可见 {len(scan.searched)} 篇（{mode}过期），跳过 {scan.skipped} 篇")
+
+
+# --- 子命令 -----------------------------------------------------------------
+
+
 def _cmd_init(args: argparse.Namespace) -> int:
     if not args.vault:
-        print(
-            f"错误: init 需要 --vault <path>（例如 {PROG} init --vault /path/to/vault）",
-            file=sys.stderr,
-        )
+        _err(f"init 需要 --vault <path>（例如 {PROG} init --vault /path/to/vault）")
         return EXIT_INPUT_REQUIRED
 
     vault = Path(args.vault).expanduser()
@@ -108,7 +224,7 @@ def _cmd_init(args: argparse.Namespace) -> int:
 
 
 def _cmd_doctor(args: argparse.Namespace) -> int:
-    config = load_config(Path(args.vault).expanduser() if args.vault else None)
+    config = _config(args)
     diagnostics = doctor(config)
     for item in diagnostics:
         print(f"{item.level.upper():<5} {item.code:<22} {item.message}")
@@ -118,24 +234,174 @@ def _cmd_doctor(args: argparse.Namespace) -> int:
     return EXIT_FAILURE if any(item.is_error for item in diagnostics) else EXIT_OK
 
 
-def _cmd_not_implemented(args: argparse.Namespace) -> int:
-    print(
-        f"{args.command} 尚未实现：{__version__} 只交付骨架、vault 配置、"
-        "数据协议与 Codex 输入适配。",
-        file=sys.stderr,
-    )
-    print("请勿向用户声称该操作已完成。", file=sys.stderr)
-    return EXIT_NOT_IMPLEMENTED
+def _cmd_archive(args: argparse.Namespace) -> int:
+    if not args.input:
+        _err("archive 需要 --input <path>（会话文件）")
+        return EXIT_INPUT_REQUIRED
+
+    config = _config(args)
+    session = _load_session(Path(args.input).expanduser())
+
+    if args.dry_run:
+        return _archive_plan(args, config, session)
+
+    if args.distilled:
+        note = _load_distilled(Path(args.distilled).expanduser())
+        result = write_note(note, session, config)
+        _print_write_result(config, note, result, distilled=True)
+        _print_vault_line(config, args.include_stale)
+        return EXIT_OK
+
+    if not config.provider:
+        try:
+            prepare_distillation(session, config)
+        except DistillationRequired as exc:
+            _err("需要蒸馏：未配置模型，已生成 staging 请求，未写入任何正式笔记")
+            print(f"staging: {_display(config, exc.staging_path)}", file=sys.stderr)
+            if exc.schema_path is not None:
+                print(f"schema: {_display(config, exc.schema_path)}", file=sys.stderr)
+            print(
+                "下一步: 让 Agent 按 schema 产出 DistilledNote，再用 --distilled 归档",
+                file=sys.stderr,
+            )
+            return EXIT_DISTILLATION_REQUIRED
+        raise ConfigError("内部状态异常：无 provider 时不应直接返回笔记")
+
+    note = prepare_distillation(session, config)
+    result = write_note(note, session, config)
+    _print_write_result(config, note, result)
+    _print_vault_line(config, args.include_stale)
+    return EXIT_OK
+
+
+def _archive_plan(args: argparse.Namespace, config: AppConfig, session: NormalizedSession) -> int:
+    """--dry-run：只读演算，一个字节都不写。"""
+    cleaned, report = filter_noise(session)
+    print("dry-run: 不写入任何文件（不写 Markdown / state / audit / staging，也不创建目录）")
+    print(f"input: {Path(args.input).name}")
+    print(f"session: {session.title}（{session.source}:{session.session_id}）")
+    print(f"noise: {_noise_line(report)}")
+    print(f"will_keep: {len(cleaned.messages)} 条消息进入蒸馏")
+
+    if args.distilled:
+        note = _load_distilled(Path(args.distilled).expanduser())
+        result = write_note(note, session, config, dry_run=True)
+        print(f"预计 action: {result.action}")
+        print(f"预计 path: {_display(config, result.path)}")
+        print(f"content_hash: {result.content_hash}")
+        print("distilled: 使用 --distilled，不会调用模型")
+    elif not config.provider:
+        print("预计 action: 生成 staging 请求（需要蒸馏），不会写正式笔记")
+        print("预计退出码: 3")
+    else:
+        print(f"预计 action: 调用模型 {config.provider} → 校验 → 写入")
+        print("预计 path: 需蒸馏完成后才能确定")
+    return EXIT_OK
+
+
+def _cmd_validate(args: argparse.Namespace) -> int:
+    config = _config(args)
+    report = validate_vault(config, include_stale=args.include_stale)
+
+    print(f"valid: {len(report.valid)}")
+    print(f"missing_fields: {len(report.missing_fields)}")
+    print(f"invalid_status: {len(report.invalid_status)}")
+    print(f"broken_links: {len(report.broken_links)}")
+    print(f"skipped: {report.skipped}")
+    for issue in report.issues:
+        print(f"  [{issue.code}] {_display(config, issue.path)}: {issue.message}")
+    print(report.summary())
+    return EXIT_OK if report.ok else EXIT_FAILURE
+
+
+def _cmd_status(args: argparse.Namespace) -> int:
+    config = _config(args)
+    scan = scan_notes(config, include_stale=True)
+
+    counts = {status: 0 for status in STATUS_VALUES}
+    pending = 0
+    unparseable = 0
+    other = 0
+    for record in scan.records:
+        if record.is_pending:
+            pending += 1
+            continue
+        if not record.ok:
+            unparseable += 1
+            continue
+        status = record.status
+        if status in counts:
+            counts[status] += 1
+        else:
+            other += 1
+
+    report = validate_vault(config, include_stale=True)
+    for status in STATUS_VALUES:
+        print(f"{status}: {counts[status]}")
+    print(f"pending: {pending}")
+    print(f"无法解析: {unparseable}")
+    print(f"其他/非法状态: {other}")
+    print(f"断链数: {len(report.broken_links)}")
+    print(f"缺字段数: {len(report.missing_fields)}")
+    print(f"skipped: {report.skipped}")
+    print(f"可检索: {len(scan.searched)}")
+    return EXIT_OK
+
+
+def _cmd_recheck(args: argparse.Namespace) -> int:
+    if args.due and (args.note or args.status):
+        _err("--due 与 --note/--status 不能同时使用")
+        return EXIT_INPUT_REQUIRED
+    if not args.due and (not args.note or not args.status):
+        _err("recheck 需要 --due，或 --note <path> 与 --status <状态> 同时给出")
+        return EXIT_INPUT_REQUIRED
+
+    config = _config(args)
+
+    if args.due:
+        due = list(iter_due_notes(config, date.today(), include_stale=args.include_stale))
+        print(f"到期候选: {len(due)} 篇（只列不改：未修改任何笔记或其状态）")
+        for path in due:
+            print(f"  {_display(config, path)}")
+        return EXIT_OK
+
+    target = set_note_status(config, Path(args.note).expanduser(), args.status)
+    print(f"status: {args.status}")
+    print(f"path: {_display(config, target)}")
+    return EXIT_OK
+
+
+def _cmd_uninstall(args: argparse.Namespace) -> int:
+    if not args.yes:
+        _err("uninstall 需要 --yes 确认；未确认时不会删除任何东西")
+        return EXIT_INPUT_REQUIRED
+
+    vault = resolve_safely(Path(args.vault).expanduser()) if args.vault else load_config().vault
+    state_dir = vault / STATE_DIRNAME
+    if state_dir.is_symlink():
+        raise ConfigError(f"状态目录是符号链接，拒绝删除: {state_dir}")
+    target = ensure_inside_vault(vault, state_dir)
+    if not target.exists():
+        print(f"状态目录不存在，无需卸载: {target}")
+        return EXIT_OK
+    if not target.is_dir():
+        raise ConfigError(f"状态目录不是目录，拒绝删除: {target}")
+
+    removed = sum(1 for item in target.rglob("*") if item.is_file())
+    shutil.rmtree(target)
+    print(f"已删除状态目录: {target}（{removed} 个文件）")
+    print("未删除任何 Markdown 笔记")
+    return EXIT_OK
 
 
 HANDLERS: dict[str, Callable[[argparse.Namespace], int]] = {
     "init": _cmd_init,
     "doctor": _cmd_doctor,
-    "archive": _cmd_not_implemented,
-    "validate": _cmd_not_implemented,
-    "status": _cmd_not_implemented,
-    "recheck": _cmd_not_implemented,
-    "uninstall": _cmd_not_implemented,
+    "archive": _cmd_archive,
+    "validate": _cmd_validate,
+    "status": _cmd_status,
+    "recheck": _cmd_recheck,
+    "uninstall": _cmd_uninstall,
 }
 
 
@@ -155,7 +421,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         return HANDLERS[command](args)
     except DistillerError as exc:
-        print(f"错误: {exc}", file=sys.stderr)
+        _err(str(exc))
         return EXIT_FAILURE
 
 

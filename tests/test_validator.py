@@ -22,7 +22,11 @@ from experience_data_asset_engine.validator import (
     scan_notes,
     validate_vault,
 )
-from experience_data_asset_engine.writer import GENERATOR, render_frontmatter
+from experience_data_asset_engine.writer import (
+    GENERATOR,
+    is_pending_filename,
+    render_frontmatter,
+)
 
 PROJECT = "体验数据资产引擎"
 
@@ -468,3 +472,89 @@ def test_symlinked_note_pointing_outside_vault_is_reported(config: AppConfig, tm
     )
     assert "逃逸" not in stems(report.valid)
     assert outside_note.read_text(encoding="utf-8") == note_text("外部笔记")
+
+
+# --- pending 命名精确匹配（Gate 4 收口） -------------------------------------
+
+
+@pytest.mark.parametrize(
+    "filename",
+    [
+        "冲突笔记.pending-abcdef12.md",
+        "冲突笔记.pending-0123abcd.md",
+        "冲突笔记.pending.md",
+    ],
+)
+def test_pending_naming_accepts_current_and_legacy(filename: str):
+    assert is_pending_filename(filename) is True
+
+
+@pytest.mark.parametrize(
+    "filename",
+    [
+        "release.pending-notes.md",
+        "release.pending.md.bak",
+        "冲突笔记.pending-ABCDEF12.md",
+        "冲突笔记.pending-abcdef1.md",
+        "冲突笔记.pending-abcdef123.md",
+        "冲突笔记.pending-abcdefg1.md",
+        "pending.md",
+        "冲突笔记.md",
+    ],
+)
+def test_pending_naming_rejects_lookalikes(filename: str):
+    assert is_pending_filename(filename) is False
+
+
+def test_plain_note_containing_pending_in_name_is_not_a_candidate(config: AppConfig):
+    """`release.pending-notes.md` 是普通笔记：不得被当成候选静默跳过。"""
+    path = put_note(config, "release.pending-notes", note_text("release.pending-notes"))
+
+    report = validate_vault(config)
+
+    assert path in report.valid
+    assert path in iter_notes(config)
+    assert "release.pending-notes" in stems(iter_notes(config, include_stale=True))
+
+
+# --- pending 命名精确匹配（Gate 4 收口） -------------------------------------
+
+
+@pytest.mark.parametrize(
+    "filename",
+    [
+        "冲突笔记.pending-abcdef12.md",
+        "冲突笔记.pending-0123abcd.md",
+        "冲突笔记.pending.md",
+    ],
+)
+def test_pending_naming_accepts_current_and_legacy(filename: str):
+    assert is_pending_filename(filename) is True
+
+
+@pytest.mark.parametrize(
+    "filename",
+    [
+        "release.pending-notes.md",
+        "release.pending.md.bak",
+        "冲突笔记.pending-ABCDEF12.md",
+        "冲突笔记.pending-abcdef1.md",
+        "冲突笔记.pending-abcdef123.md",
+        "冲突笔记.pending-abcdefg1.md",
+        "pending.md",
+        "冲突笔记.md",
+    ],
+)
+def test_pending_naming_rejects_lookalikes(filename: str):
+    assert is_pending_filename(filename) is False
+
+
+def test_plain_note_containing_pending_in_name_is_not_a_candidate(config: AppConfig):
+    """`release.pending-notes.md` 是普通笔记：不得被当成候选静默跳过。"""
+    path = put_note(config, "release.pending-notes", note_text("release.pending-notes"))
+
+    report = validate_vault(config)
+
+    assert path in report.valid
+    assert path in iter_notes(config)
+    assert "release.pending-notes" in stems(iter_notes(config, include_stale=True))

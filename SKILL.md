@@ -31,46 +31,52 @@ metadata:
 
 ## 当前实现状态（0.1.0）
 
-已实现到「降噪 + 蒸馏」：能把会话压成合格的知识笔记输入，但**还不会写入 vault**。
+主链路已打通：导入 → 降噪 → 蒸馏 → 写入 → 校验 → 复核 → 卸载。全部通过 CLI 可用。
 
 | 能力 | 入口 | 状态 |
 |---|---|---|
-| 初始化 vault 配置 | `cli.py init` | 已实现 |
-| 环境自检 | `cli.py doctor` | 已实现 |
-| 标准化会话协议 | `adapters/normalized_json.py` | 已实现 |
-| Codex JSONL / `.jsonl.zst` 输入 | `adapters/codex_jsonl.py` | 已实现 |
-| 四层降噪 + 隐私脱敏 | `noise.py::filter_noise` / `redact_sensitive` | 已实现（库调用） |
-| 蒸馏执行器（含无模型 staging） | `distill.py::prepare_distillation` | 已实现（库调用） |
-| 归档写入、检索过滤、复核 | `archive` / `validate` / `status` / `recheck` / `uninstall` | 未实现，返回退出码 4 |
-
-调用未实现的子命令时，脚本会明确提示「尚未实现」。**不要向用户声称归档已经完成**——
-当前没有把任何 Markdown 写进归档目录的能力。
+| 初始化 vault 配置 | `init` | 已实现 |
+| 环境自检 | `doctor` | 已实现 |
+| 会话输入 | `archive --input`：`.json` / `.jsonl` / `.jsonl.zst` / `.md` | 已实现 |
+| 四层降噪 + 隐私脱敏 | `noise.py`（`archive` 内部调用） | 已实现 |
+| 蒸馏（含无模型 staging） | `distill.py`（`archive` 内部调用） | 已实现 |
+| 写入 vault（幂等 + 冲突 pending） | `writer.py` | 已实现 |
+| 校验 / 状态 / 到期复核 | `validate` / `status` / `recheck` | 已实现 |
+| 卸载（只删状态目录） | `uninstall --yes` | 已实现 |
+| 打包发布（SkillHub / GitHub） | — | 未实现（Gate 5） |
 
 ## 主流程
 
-1. `doctor` 读环境，确认 vault、归档目录、状态目录可用；已有配置时不要再 `init`。
-2. 用 `adapters` 把来源会话标准化为 `NormalizedSession`（字段见
-   `references/output-schema.md`）。
-3. `filter_noise(session)` 做四层降噪：系统上下文、工具输出、重复主题、死路短句被丢弃，
-   凭据替换为 `[已脱敏]`（**会话标题与消息同等对待，一起脱敏**）；
-   返回新会话 + 7 项统计（口径见 `references/noise-policy.md`）。
-4. `prepare_distillation(session, config)` 产出 `DistilledNote`：
-   - 没配模型：只在 `staging/` 写 `<state_key>.request.md` 与 `.schema.json`，
-     抛 `DistillationRequired`（退出码 3），由 Agent 或人工补完；
-   - 配了模型：走 OpenAI-compatible 接口，输出必须通过全量协议校验，
-     任何失败都失败关闭，绝不降级为原文。
-5. 写入 vault 仍未实现（后续版本）；现在没有「归档」这个动作。
+1. `init --vault <vault>`：写入配置，创建归档与状态目录（幂等，不覆盖）。
+2. `archive --input <file>`：按后缀自动识别来源，做四层降噪后进入蒸馏。
+   - 有模型：降噪 → 蒸馏 → 全量协议校验 → 写入 vault；
+   - 无模型：只写 `staging/<state_key>.request.md` 与 `.schema.json`，
+     退出码 3，**不写任何正式笔记**；Agent 补完蒸馏后用 `--distilled` 归档。
+3. `archive --distilled <note.json>`：只校验并写入，不调用模型。
+4. `archive --dry-run`：只演算，不写 Markdown / state / audit / staging，连目录都不建。
+5. `validate` / `status` / `recheck --due`：只读，零写入。
+6. `recheck --note <path> --status <状态>`：只原子改 frontmatter 的「状态」一行。
+7. `uninstall --yes`：只删 `<vault>/.experience-data-asset-engine/`，绝不删 Markdown。
+
+**不要向用户声称做了这些没做的事**：打包发布 SkillHub、GitHub 上线、修改非本工具笔记、
+删除任何 Markdown。
 
 ## CLI 入口
 
 ```bash
-python scripts/cli.py --version
-python scripts/cli.py init --vault /path/to/vault --archive-dir 04-对话存档
-python scripts/cli.py doctor
+python scripts/cli.py init --vault /path/to/vault
 python scripts/cli.py doctor --vault /path/to/vault
+python scripts/cli.py archive --input session.md [--distilled note.json] [--dry-run]
+python scripts/cli.py archive --input session.md --vault /path/to/vault
+python scripts/cli.py validate --vault /path/to/vault
+python scripts/cli.py status --vault /path/to/vault
+python scripts/cli.py recheck --due --vault /path/to/vault
+python scripts/cli.py recheck --note <path> --status 已过时 --vault /path/to/vault
+python scripts/cli.py uninstall --vault /path/to/vault --yes
 ```
 
-安装后也可用控制台入口 `experience-data-asset-engine`。
+安装后也可用控制台入口 `experience-data-asset-engine`。退出码：0 成功 / 1 校验或配置失败 /
+2 需要补充输入 / 3 需要蒸馏。参数矩阵见 `references/config.md`。
 
 ## 安全边界
 

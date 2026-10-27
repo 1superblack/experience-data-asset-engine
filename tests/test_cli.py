@@ -105,10 +105,34 @@ def test_doctor_prints_no_api_key(sample_vault, monkeypatch, capsys):
     assert "sk-cli-must-not-leak" not in captured.out + captured.err
 
 
-@pytest.mark.parametrize("command", ["archive", "validate", "status", "recheck", "uninstall"])
-def test_unimplemented_commands_fail_closed(command, capsys):
-    assert main([command]) == EXIT_NOT_IMPLEMENTED
-    assert "尚未实现" in capsys.readouterr().err
+@pytest.mark.parametrize("command", ["archive", "recheck", "uninstall"])
+def test_commands_without_required_arguments_ask_for_input(command, capsys):
+    """Gate 4 起这些子命令都已实现，缺参数时要求用户补输入，而不是假装成功。"""
+    assert main([command]) == EXIT_INPUT_REQUIRED
+    assert "错误:" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("command", ["validate", "status"])
+def test_read_only_commands_without_config_fail_closed(command, tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    assert main([command]) == EXIT_FAILURE
+    assert "init" in capsys.readouterr().err
+
+
+def test_no_command_still_returns_exit_4():
+    """退出码 4 保留给「未实现」语义，Gate 4 之后没有任何子命令会返回它。"""
+    from experience_data_asset_engine import cli as cli_module
+
+    assert cli_module.EXIT_NOT_IMPLEMENTED == 4
+    assert set(cli_module.HANDLERS) == {
+        "init",
+        "doctor",
+        "archive",
+        "validate",
+        "status",
+        "recheck",
+        "uninstall",
+    }
 
 
 def test_scripts_entrypoint_runs_from_repo_root():
