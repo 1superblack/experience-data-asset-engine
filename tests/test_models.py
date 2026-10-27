@@ -17,9 +17,12 @@ from experience_data_asset_engine.models import (
     NormalizedSession,
     is_rejected_item_acceptable,
     parse_iso_datetime,
+    source_issues,
     split_no_alternative,
     state_key,
+    validate_source,
 )
+from experience_data_asset_engine.noise import filter_noise
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
@@ -116,6 +119,112 @@ def test_session_requires_source_and_session_id():
         NormalizedSession.from_dict(payload)
     assert "source" in str(exc.value)
     assert "session_id" in str(exc.value)
+
+
+# --- 来源标识是受控标识符，不是自由文本 ---------------------------------------
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "codex",
+        "chatgpt",
+        "claude",
+        "workbuddy",
+        "manual",
+        "obsidian-exporter",
+        "cli.import",
+        "a1",
+        "0x9",
+        "a" * 40,
+    ],
+)
+def test_legal_source_is_accepted(source):
+    payload = session_payload()
+    payload["source"] = source
+    assert NormalizedSession.from_dict(payload).source == source
+
+
+@pytest.mark.parametrize(
+    "raw, expected",
+    [
+        ("CODEX", "codex"),
+        ("  codex  ", "codex"),
+        ("Obsidian-Exporter", "obsidian-exporter"),
+    ],
+)
+def test_source_is_normalized_to_lowercase(raw, expected):
+    payload = session_payload()
+    payload["source"] = raw
+    assert NormalizedSession.from_dict(payload).source == expected
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        # 凭据不能伪装成来源
+        "api_key=sk-abcdefghijklmnop1234",
+        "password=Hunter2Hunter2",
+        "Bearer abcdef1234567890",
+        # 路径不能进来源
+        "C:/Users/example/secret",
+        "a/b",
+        "a\\b",
+        # 结构化破坏
+        "line\nbreak",
+        "tab\there",
+        "has space",
+        "codex:sub",
+        "codex=1",
+        # 非白名单字符 / 非法开头 / 超长
+        "中文来源",
+        "-leading-dash",
+        ".hidden",
+        "",
+        "a" * 41,
+    ],
+)
+def test_illegal_source_is_rejected_before_anything_else(source):
+    payload = session_payload()
+    payload["source"] = source
+    with pytest.raises(SchemaError, match="source"):
+        NormalizedSession.from_dict(payload)
+
+
+def test_source_validation_does_not_change_state_key():
+    """合法来源的归一化不改变 state_key 稳定性。"""
+    legal = NormalizedSession.from_dict({**session_payload(), "source": "codex"})
+    shouty = NormalizedSession.from_dict({**session_payload(), "source": "CODEX"})
+    assert legal.state_key == shouty.state_key == state_key("codex", legal.session_id)
+
+
+def test_derived_sessions_keep_validated_source():
+    session = NormalizedSession.from_dict(session_payload())
+    cleaned, _ = filter_noise(session)
+    assert cleaned.source == session.source
+    assert cleaned.with_title("x").source == session.source
+
+
+def test_validate_source_helper_normalizes_and_raises():
+    assert validate_source("  CODEX  ") == "codex"
+    assert validate_source("obsidian-exporter") == "obsidian-exporter"
+    for bad in ("api_key=sk-abcdefghijklmnop1234", "", None, "a/b"):
+        with pytest.raises(SchemaError, match="来源标识"):
+            validate_source(bad)
+
+
+@pytest.mark.parametrize(
+    "value, fragment",
+    [
+        (None, "必须是字符串"),
+        ("", "不能为空"),
+        (" codex ", "首尾不能有空白"),
+        ("a" * 41, "长度不能超过"),
+        ("Bad Source", "只能是小写"),
+    ],
+)
+def test_source_issues_explains_each_violation(value, fragment):
+    assert fragment in " ".join(source_issues(value))
 
 
 def test_session_rejects_unsupported_schema_version():

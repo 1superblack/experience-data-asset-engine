@@ -247,6 +247,14 @@ def test_staging_title_is_redacted(base_config):
     assert REDACTED in title_line
 
 
+def test_staging_prints_the_validated_source(base_config):
+    with pytest.raises(DistillationRequired) as err:
+        prepare_distillation(load_normalized_json(SESSION), base_config)
+
+    text = err.value.staging_path.read_text(encoding="utf-8")
+    assert "- 来源: codex" in text
+
+
 def test_provider_prompt_redacts_title_secret(base_config, monkeypatch):
     monkeypatch.setenv("EDAE_API_KEY", "sk-test-only")
     with FakeProvider(ok_responder) as provider:

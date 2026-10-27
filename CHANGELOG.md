@@ -72,6 +72,17 @@
   CLI 遇到链接环返回退出码 1，stderr 输出普通「错误: … outside vault」，不打印 traceback。
 - 探针文件名统一为 `.edae-probe-*.tmp`。
 
+### 修复（Gate 2 第二轮复审）
+
+- **`source` 不再是无约束自由文本**：它原先只要求非空，却会被直接写进 staging 的「来源」行、
+  provider 提示词的「来源：…」以及 `state_key` 的哈希输入——因此可以携带密钥、个人路径、
+  换行或提示注入内容，成为第二个绕过脱敏的元数据旁路。现在 `source` 是**受控标识符**：
+  只允许小写字母、数字、点、下划线、连字符，必须以字母或数字开头，长度 1–40；
+  写入前先 `strip()` + 转小写；非法值在 `NormalizedSession` 校验阶段就失败，
+  流不到 staging / provider / `state_key`。需要展示名称请放 `metadata`。
+  已知值 `codex` / `chatgpt` / `claude` / `workbuddy` / `manual` 保持兼容，
+  扩展值如 `obsidian-exporter` / `cli.import` 同样合法。
+
 ### 修复（Gate 2 复审）
 
 - **标题不再绕过脱敏**：`filter_noise` 对 `session.title` 执行 `redact_sensitive`，次数并入

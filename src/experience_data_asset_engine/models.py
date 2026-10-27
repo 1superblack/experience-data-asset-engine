@@ -72,6 +72,59 @@ def has_control_chars(value: str) -> bool:
     return any(char in CONTROL_CHARS for char in value)
 
 
+#: ``source`` 是**受控标识符**，不是自由文本。
+#:
+#: 它会进 staging 的「来源」行、provider 提示词的「来源：…」、以及 ``state_key`` 的哈希输入。
+#: 一旦允许任意文本，它就成了绕过脱敏的旁路：密钥、个人路径、换行、提示注入都能塞进去。
+#: 需要对外显示的名字放 ``metadata``，不要塞进 ``source``。
+SOURCE_MAX_LENGTH = 40
+SOURCE_PATTERN = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
+KNOWN_SOURCES = ("codex", "chatgpt", "claude", "workbuddy", "manual")
+
+
+def normalize_source(value: str) -> str:
+    """规范化来源标识：去首尾空白 + 转小写。"""
+    return value.strip().lower()
+
+
+def source_issues(value: Any) -> list[str]:
+    """校验来源标识，返回问题列表（空列表表示合法）。
+
+    规则：小写字母、数字、点、下划线、连字符；必须以字母或数字开头；长度 1–40。
+    空格、控制字符、冒号、斜杠、反斜杠、等号、中文一律不允许。
+    """
+    if not isinstance(value, str):
+        return ["source 必须是字符串"]
+    if not value:
+        return ["source 不能为空"]
+    issues: list[str] = []
+    if value != value.strip():
+        issues.append("source 首尾不能有空白")
+    if len(value) > SOURCE_MAX_LENGTH:
+        issues.append(f"source 长度不能超过 {SOURCE_MAX_LENGTH}，收到 {len(value)} 个字符")
+    if not SOURCE_PATTERN.match(value):
+        issues.append(
+            "source 只能是小写的字母、数字、点、下划线、连字符，且必须以字母或数字开头；"
+            "不允许空格、控制字符、冒号、斜杠、反斜杠、等号或中文。"
+            "需要展示名称请放 metadata"
+        )
+    return issues
+
+
+def validate_source(value: Any) -> str:
+    """规范化并校验来源标识，非法时抛 ``SchemaError``。
+
+    与 ``NormalizedSession.from_dict`` 内部的分步校验共用同一套规则；
+    对外暴露给适配器在构造会话前自检。
+    """
+    if isinstance(value, str):
+        value = normalize_source(value)
+    issues = source_issues(value)
+    if issues:
+        _raise_issues("来源标识不符合协议", issues)
+    return value
+
+
 def looks_absolute(value: str) -> bool:
     """跨平台判断「看起来像绝对路径」。
 
@@ -265,6 +318,8 @@ class NormalizedSession:
             value = getattr(self, name)
             if not isinstance(value, str) or not value.strip():
                 issues.append(f"{name} 不能为空")
+        if isinstance(self.source, str) and self.source.strip():
+            issues.extend(source_issues(self.source))
         _raise_issues("标准化会话不符合协议", issues)
         validate_session_id(self.session_id)
 
@@ -283,6 +338,11 @@ class NormalizedSession:
             issues.append(f"schema_version 必须是 {SCHEMA_VERSION}，收到 {version!r}")
 
         source = _text_field(payload, "source", issues)
+        if source is not None:
+            # 来源是受控标识符：先规范化（去空白 + 转小写），再按白名单字符集校验。
+            # 非法 source 必须在这里就失败，不能流到 staging / provider / state_key。
+            source = normalize_source(source)
+            issues.extend(source_issues(source))
         session_id = _text_field(payload, "session_id", issues)
         if session_id is not None:
             try:

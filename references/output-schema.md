@@ -33,7 +33,7 @@
 | 字段 | 类型 | 必填 | 规则 |
 |---|---|---|---|
 | `schema_version` | int | 是 | 必须等于 `1` |
-| `source` | string | 是 | 来源标识，非空。已知值：`codex`、`chatgpt`、`claude`、`workbuddy`、`manual` |
+| `source` | string | 是 | **受控标识符，不是自由文本**：只允许小写字母、数字、点、下划线、连字符，必须以字母或数字开头，长度 1–40；不允许空格、控制字符、冒号、斜杠、反斜杠、等号、中文。写入前先去空白并转小写。已知值：`codex`、`chatgpt`、`claude`、`workbuddy`、`manual`；扩展值如 `obsidian-exporter`、`cli.import` 合法。**需要展示名称请放 `metadata`，不要塞进 `source`** |
 | `session_id` | string | 是 | 来源内的唯一会话 ID，**逻辑标识，不是路径**。非空、<= 200 字符、不含控制字符、不含 `/` 或 `\`、不是 `.`/`..`、不是绝对路径。文件名一律用 `sha256(source + ":" + session_id)` |
 | `title` | string | 是 | 会话标题，非空 |
 | `created_at` | string | 是 | ISO 8601，带时区更好，允许无时区 |
@@ -198,6 +198,7 @@ input_messages == kept_messages + system_noise + tool_noise + duplicate_topics +
 - `role` / `kind` / `status` / `content_volatility` 不在枚举内。
 - 时间戳不是 ISO 8601、`review_after` 不是 `YYYY-MM-DD`。
 - `session_id` 含路径分隔符、控制字符、`.`/`..`、绝对路径、超长或为空。
+- `source` 不是受控标识符：含大写（写入前会先转小写，转完仍非法则拒绝）、空格、控制字符、冒号、斜杠、反斜杠、等号、中文或其他非 `[a-z0-9._-]` 字符；不以字母或数字开头；为空或超过 40 字符。
 - `project` 含路径分隔符、控制字符、隐藏名、保留名、非法字符、以空格或点结尾、超长或为空。
 - `title` 含控制字符（换行/制表符/NUL）、非法字符、隐藏名、保留名、以空格或点结尾、超长。
 - 所有 `decisions` 的 `rejected` 都为空（或只写了「无备选：」而不给原因、或原因只是「原因未知 / 不适用 / 暂无」等占位话术）。
