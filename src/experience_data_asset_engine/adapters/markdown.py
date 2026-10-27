@@ -17,7 +17,8 @@
 - 一级标题是会话标题，必须出现且只出现一次，且位于第一条角色标题之前。
 - 角色标题只认白名单别名，大小写与首尾空白可容忍；不在白名单里的二级标题
   一律失败关闭并报行号——**绝不把全文当成 assistant**。
-- 代码块（``` 或 ~~~ 围栏）里的 ``## 用户`` 是内容，不是角色标题。
+- 代码块（``` 或 ~~~ 围栏）里的 ``## 用户`` 是内容，不是角色标题；
+  关闭围栏要求「同字符 且 长度不少于开启长度」，因此四反引号块里的三反引号不会提前关闭。
 - 空文件、无标题、无角色段落、空段落、标题前有正文、多个一级标题，全部失败关闭。
 - BOM / CRLF / LF 都支持；输入不改写、不落盘，只读。
 """
@@ -92,26 +93,50 @@ def _timestamp(path: Path, now: datetime | None) -> str:
 def _parse(
     text: str, path: Path
 ) -> tuple[str, list[tuple[str, int, list[str]]]]:
-    """返回 (标题, [(角色, 起始行号, 原始行)])。所有结构问题都带行号失败关闭。"""
+    """返回 (标题, [(角色, 起始行号, 原始行)])。所有结构问题都带行号失败关闭。
+
+    围栏状态机（不是正则猜嵌套）：
+
+    - 打开时记住 ``fence_char``（````` 或 ``~``）与 ``fence_length``（实际个数）；
+    - **只有**「字符相同 且 长度 >= 开启长度」的行才能关闭——所以四反引号块里出现
+      三反引号不会被提前关掉；
+    - 围栏内的任何内容（包括 ````## 用户`` / ``## 助手`` / 未知二级标题）都是正文；
+    - 围栏开在第一条角色标题之前 → 视为「标题前正文」，失败关闭；
+    - 到 EOF 仍未关闭 → 失败关闭，不把剩下内容当普通正文。
+    """
     title: str | None = None
     sections: list[tuple[str, int, list[str]]] = []
     current: list[str] | None = None
-    fence: str | None = None
+    fence_char: str | None = None
+    fence_length = 0
+    fence_start = 0
 
     for lineno, raw in enumerate(text.splitlines(), 1):
-        fence_match = _FENCE_RE.match(raw)
-        if fence_match:
-            marker = fence_match.group("fence")
-            if fence is None:
-                fence = marker[0] * 3
-            elif marker.startswith(fence[0] * 3):
-                fence = None
-            if current is not None:
-                current.append(raw)
+        marker_match = _FENCE_RE.match(raw)
+
+        if fence_char is not None:
+            # 围栏内：只有「同字符 + 长度不少于开启长度」才算关闭
+            if marker_match:
+                marker = marker_match.group("fence")
+                if marker[0] == fence_char and len(marker) >= fence_length:
+                    fence_char = None
+                    fence_length = 0
+                    current.append(raw)
+                    continue
+            current.append(raw)
             continue
-        if fence is not None:
-            if current is not None:
-                current.append(raw)
+
+        if marker_match:
+            marker = marker_match.group("fence")
+            if current is None:
+                raise SessionFormatError(
+                    f"{path} 第 {lineno} 行：第一条角色标题之前出现了代码块"
+                    "（只允许一级标题与空行）"
+                )
+            fence_char = marker[0]
+            fence_length = len(marker)
+            fence_start = lineno
+            current.append(raw)
             continue
 
         h1 = _H1_RE.match(raw)
@@ -151,6 +176,10 @@ def _parse(
                 "（只允许一级标题与空行）"
             )
 
+    if fence_char is not None:
+        raise SessionFormatError(
+            f"{path}：第 {fence_start} 行开始的代码围栏没有闭合（到文件末尾仍未关闭）"
+        )
     if title is None:
         raise SessionFormatError(f"{path}：缺少一级标题（# 会话标题）")
     if not sections:

@@ -252,3 +252,174 @@ def test_pending_suffix_file_can_still_be_imported(tmp_path: Path):
     """导入只管解析，不管文件名语义：pending 文件也能当输入（但不会被当成笔记）。"""
     path = write(tmp_path / "s.pending-abcdef12.md", basic())
     assert load_markdown_session(path, now=FIXED_NOW).title == "示例会话"
+
+
+# --- 代码围栏状态机（Gate 4 最终修复） ----------------------------------------
+
+BT = chr(96)      # 反引号
+TL = chr(126)     # 波浪号
+NL = chr(10)      # 换行（避免在测试源码里写转义）
+
+
+def fence_times(char: str, count: int) -> str:
+    return char * count
+
+
+def test_four_backtick_fence_keeps_three_backtick_line_inside(tmp_path: Path):
+    """四反引号块里出现三反引号：不是关闭，后续内容仍在块内。"""
+    text = NL.join(
+        [
+            "# 标题",
+            "",
+            "## 用户",
+            fence_times(BT, 4) + "markdown",
+            fence_times(BT, 3),
+            "## 助手",
+            "这不是角色",
+            fence_times(BT, 3),
+            fence_times(BT, 4),
+            "",
+            "## 助手",
+            "真正回答",
+            "",
+        ]
+    )
+    session = load_markdown_session(write(tmp_path / "s.md", text), now=FIXED_NOW)
+
+    assert [m.role for m in session.messages] == ["user", "assistant"]
+    body = session.messages[0].text
+    assert fence_times(BT, 4) + "markdown" in body
+    assert "这不是角色" in body, "三反引号行之后的内容仍属于用户代码块"
+    assert fence_times(BT, 4) in body
+    assert session.messages[1].text == "真正回答"
+
+
+def test_four_backtick_fence_is_not_closed_by_three_backticks(tmp_path: Path):
+    """四反引号开启、三反引号结尾：不得提前关闭，`## 助手` 仍是正文。"""
+    text = NL.join(
+        [
+            "# 标题",
+            "## 用户",
+            fence_times(BT, 4),
+            "内容 A",
+            fence_times(BT, 3),
+            "## 助手",
+            "内容 B",
+            fence_times(BT, 4),
+            "",
+        ]
+    )
+    session = load_markdown_session(write(tmp_path / "s.md", text), now=FIXED_NOW)
+
+    assert len(session.messages) == 1, "围栏内不应产生 assistant 消息"
+    assert session.messages[0].role == "user"
+    assert "## 助手" in session.messages[0].text
+    assert "内容 B" in session.messages[0].text
+
+
+def test_closing_fence_may_be_longer_than_opening(tmp_path: Path):
+    """关闭用更长的同字符围栏是允许的（CommonMark 行为）。"""
+    text = NL.join(
+        ["# 标题", "## 用户", fence_times(BT, 3), "块内", fence_times(BT, 5), "", "## 助手", "答", ""]
+    )
+    session = load_markdown_session(write(tmp_path / "s.md", text), now=FIXED_NOW)
+
+    assert [m.role for m in session.messages] == ["user", "assistant"]
+    assert "块内" in session.messages[0].text
+
+
+def test_tilde_fence_nesting_ignores_backticks(tmp_path: Path):
+    """波浪号围栏里出现反引号围栏：都不关闭，直到波浪号关闭行。"""
+    text = NL.join(
+        [
+            "# 标题",
+            "## 用户",
+            fence_times(TL, 4),
+            fence_times(BT, 3) + "python",
+            "## 助手",
+            "伪标题",
+            fence_times(BT, 3),
+            fence_times(TL, 4),
+            "",
+            "## 助手",
+            "真实回答",
+            "",
+        ]
+    )
+    session = load_markdown_session(write(tmp_path / "s.md", text), now=FIXED_NOW)
+
+    assert [m.role for m in session.messages] == ["user", "assistant"]
+    assert "伪标题" in session.messages[0].text
+    assert session.messages[1].text == "真实回答"
+
+
+def test_all_heading_shapes_inside_fence_are_body(tmp_path: Path):
+    """围栏内 `## 用户` / `## 助手` / 未知二级标题都不是标题。"""
+    text = NL.join(
+        [
+            "# 标题",
+            "## 用户",
+            fence_times(BT, 4),
+            "## 用户",
+            "## 助手",
+            "## Unknown",
+            fence_times(BT, 4),
+            "",
+            "## 助手",
+            "答",
+            "",
+        ]
+    )
+    session = load_markdown_session(write(tmp_path / "s.md", text), now=FIXED_NOW)
+
+    assert [m.role for m in session.messages] == ["user", "assistant"]
+    body = session.messages[0].text
+    assert "## 用户" in body and "## 助手" in body and "## Unknown" in body
+
+
+def test_unclosed_fence_fails_closed(tmp_path: Path):
+    """未闭合围栏到 EOF：失败关闭，不静默当正文。"""
+    text = NL.join(["# 标题", "## 用户", fence_times(BT, 4), "没有闭合", ""])
+    path = write(tmp_path / "s.md", text)
+
+    with pytest.raises(SessionFormatError) as err:
+        load_markdown_session(path, now=FIXED_NOW)
+
+    message = str(err.value)
+    assert "没有闭合" in message or "未关闭" in message
+    assert "第 3 行" in message, "要报出围栏开启行号"
+
+
+def test_fence_before_first_role_fails_closed(tmp_path: Path):
+    """标题与第一条角色标题之间出现代码块，同样算「标题前正文」。"""
+    text = NL.join(
+        ["# 标题", "", fence_times(BT, 3), "游离代码", fence_times(BT, 3), "", "## 用户", "问", ""]
+    )
+    path = write(tmp_path / "s.md", text)
+
+    with pytest.raises(SessionFormatError, match="第 3 行"):
+        load_markdown_session(path, now=FIXED_NOW)
+
+
+def test_fence_body_keeps_original_lines(tmp_path: Path):
+    """围栏内容逐行原样保留（含缩进与语言标注）。"""
+    text = NL.join(
+        [
+            "# 标题",
+            "## 用户",
+            "   " + fence_times(BT, 4) + "python",
+            "    def foo():",
+            "        return 1",
+            "   " + fence_times(BT, 4),
+            "",
+        ]
+    )
+    session = load_markdown_session(write(tmp_path / "s.md", text), now=FIXED_NOW)
+
+    body = session.messages[0].text
+    # 段落首尾空白会被 strip，因此第一行的前导缩进不保留；其余行逐字保留
+    assert fence_times(BT, 4) + "python" in body
+    assert "    def foo():" in body, "代码行内部缩进必须原样保留"
+    assert "        return 1" in body
+    assert "   " + fence_times(BT, 4) in body, "关闭围栏的缩进也要保留"
+
