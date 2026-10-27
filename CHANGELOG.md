@@ -8,6 +8,20 @@
 全部通过 CLI 使用。**可离线打包**为可分发的 zip（根目录含 `SKILL.md`）；
 **不含上架能力**（SkillHub 上架、GitHub Release 流水线未实现，仓库内没有发布产物）。
 
+### 发布准备收口（Gate 5 复审）
+
+- **子进程固定 UTF-8**：`tests/test_package.py` 所有 `subprocess` 调用显式注入
+  `PYTHONUTF8=1` + `PYTHONIOENCODING=utf-8`，并用 AST 断言「一个都不许漏」；
+  此前在普通 Windows shell（代码页 GBK）下 `test_planted_credential_fails_closed` 会因
+  中文 stderr 乱码而假失败。CI 同时在 workflow 级固定这两个变量。
+- **正式 Skill 校验入口**：新增 `scripts/quick_validate.py`（无第三方依赖），
+  校验 frontmatter 可解析、`name` hyphen-case、description 长度上限、
+  `metadata.slug/displayName/version` 合法；CI 直接调用，缺失或失败即红（不再 warning 跳过）。
+- **占位联系方式清零**：`SECURITY.md` 不再写占位邮箱，改为走平台私有安全报告入口；
+  并加测试防止占位地址随包发布。
+- 打包产物随 `scripts/quick_validate.py` 增至 30 个文件，SHA256 为
+  `7586394d…e523`（同机同源两次构建一致）。
+
 ### 打包、CI 与发布准备（Gate 5）
 
 - **离线打包**：`scripts/build_skill_zip.py` 打出根目录含 `SKILL.md` 的 zip，

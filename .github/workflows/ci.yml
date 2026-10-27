@@ -13,6 +13,12 @@ on:
 permissions:
   contents: read
 
+# Windows runner 默认代码页不是 UTF-8：子进程里的中文输出会变成乱码，断言按 UTF-8 读就会红。
+# 这里在 workflow 级别固定，三个 job 一致；测试自身也给子进程注入同一组变量（双保险）。
+env:
+  PYTHONUTF8: "1"
+  PYTHONIOENCODING: utf-8
+
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -59,35 +65,8 @@ jobs:
             exit 1
           fi
 
-      # 仓库当前没有 scripts/quick_validate.py。这里用「探测后执行，缺失则显式跳过」，
-      # 不硬编码任何本机路径，也绝不在脚本缺失时打印假的通过信息。
-      - name: 校验技能清单（缺失校验脚本时显式跳过）
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd "${GITHUB_WORKSPACE}"
-          for candidate in scripts/quick_validate.py scripts/validate_skill.py; do
-            if [[ -f "${candidate}" ]]; then
-              echo "校验入口：${candidate}"
-              python "${candidate}" --help
-              python "${candidate}" .
-              exit 0
-            fi
-          done
-          echo "::warning::仓库未提供 scripts/quick_validate.py，显式 skill 校验已跳过（本次不声明校验通过）。"
-          python - <<'PY'
-          import pathlib
-          import sys
-
-          text = pathlib.Path("SKILL.md").read_text(encoding="utf-8")
-          if not text.startswith("---\n"):
-              sys.exit("SKILL.md 缺少 YAML frontmatter")
-          head = text.split("---", 2)[1]
-          missing = [key for key in ("name:", "description:") if key not in head]
-          if missing:
-              sys.exit(f"SKILL.md frontmatter 缺少字段: {missing}")
-          print("SKILL.md frontmatter 结构兜底检查通过（仅为兜底，不等同于完整的 skill 校验）")
-          PY
+      - name: Skill 元数据校验（正式入口，失败即红）
+        run: python scripts/quick_validate.py .
 
       - name: 打包产物体检（根目录直挂 + 可复现 + 不含隐私）
         run: python scripts/build_skill_zip.py --output dist/skill.zip

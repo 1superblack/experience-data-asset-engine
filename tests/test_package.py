@@ -6,8 +6,10 @@
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import importlib.util
+import os
 import re
 import subprocess
 import sys
@@ -58,14 +60,33 @@ REQUIRED_ROOT_FILES = frozenset(
 )
 
 
-def run_build(output: Path, cwd: Path = ROOT) -> subprocess.CompletedProcess[str]:
+def utf8_env() -> dict[str, str]:
+    """子进程固定 UTF-8。
+
+    Windows 默认代码页（中文机器上是 GBK）会把中文 stderr 写成非 UTF-8 字节，
+    这里再按 UTF-8 读就是乱码。这是宿主编码问题，不是断言问题，
+    所以修在 env 上——不把断言降级成 ASCII 来掩盖。
+    """
+    env = os.environ.copy()
+    env["PYTHONUTF8"] = "1"
+    env["PYTHONIOENCODING"] = "utf-8"
+    return env
+
+
+def run_build(
+    output: Path, cwd: Path = ROOT, repo: Path | None = None
+) -> subprocess.CompletedProcess[str]:
+    argv = [sys.executable, str(SCRIPT), "--output", str(output)]
+    if repo is not None:
+        argv += ["--repo", str(repo)]
     return subprocess.run(
-        [sys.executable, str(SCRIPT), "--output", str(output)],
+        argv,
         cwd=str(cwd),
         capture_output=True,
         text=True,
         encoding="utf-8",
         errors="replace",
+        env=utf8_env(),
         check=False,
     )
 
@@ -218,15 +239,7 @@ def test_line_endings_do_not_change_archive_hash(tmp_path: Path) -> None:
     crlf_zip = tmp_path / "crlf.zip"
 
     for repo, out in ((lf_repo, lf_zip), (crlf_repo, crlf_zip)):
-        proc = subprocess.run(
-            [sys.executable, str(SCRIPT), "--output", str(out), "--repo", str(repo)],
-            cwd=str(tmp_path),
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            check=False,
-        )
+        proc = run_build(out, cwd=tmp_path, repo=repo)
         assert proc.returncode == 0, f"stdout={proc.stdout}\nstderr={proc.stderr}"
 
     assert crlf_repo.joinpath("README.md").read_bytes().count(b"\r\n") > 0, "夹具没造出 CRLF"
@@ -279,15 +292,7 @@ def _make_synthetic_repo(base: Path) -> Path:
 def test_exclusion_rules_hold_on_synthetic_tree(tmp_path: Path) -> None:
     repo = _make_synthetic_repo(tmp_path / "repo")
     out = tmp_path / "synth.zip"
-    proc = subprocess.run(
-        [sys.executable, str(SCRIPT), "--output", str(out), "--repo", str(repo)],
-        cwd=str(tmp_path),
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        check=False,
-    )
+    proc = run_build(out, cwd=tmp_path, repo=repo)
     assert proc.returncode == 0, f"stdout={proc.stdout}\nstderr={proc.stderr}"
     names = set(_names(out))
     assert names == {
@@ -308,14 +313,50 @@ def test_planted_credential_fails_closed(tmp_path: Path) -> None:
         "token: sk-abcdefghijklmnop1234\n", encoding="utf-8"
     )
     out = tmp_path / "leak.zip"
-    proc = subprocess.run(
-        [sys.executable, str(SCRIPT), "--output", str(out), "--repo", str(repo)],
-        cwd=str(tmp_path),
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        check=False,
-    )
+    proc = run_build(out, cwd=tmp_path, repo=repo)
     assert proc.returncode != 0
     assert "凭据" in proc.stderr
+
+
+def test_every_subprocess_call_pins_utf8() -> None:
+    """本文件里每个 subprocess 调用都必须显式传 env。
+
+    漏一处就会出现「换台机器（代码页不同）就红」的伪失败，
+    而真正的修复是给子进程固定 UTF-8，不是改断言。
+    """
+    tree = ast.parse(Path(__file__).read_text(encoding="utf-8"))
+    offenders: list[int] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")
+        if name not in {"run", "check_output", "check_call", "Popen"}:
+            continue
+        if isinstance(func, ast.Attribute) and not (
+            isinstance(func.value, ast.Name) and func.value.id == "subprocess"
+        ):
+            continue
+        if not any(kw.arg == "env" for kw in node.keywords):
+            offenders.append(node.lineno)
+    assert not offenders, f"这些行的子进程调用没有传 env: {offenders}"
+
+
+def test_shipped_docs_have_no_placeholder_contact(packaged: tuple[Path, str]) -> None:
+    """包里发出去的安全文档不能带占位联系方式。
+
+    ``security@example.com`` 这类占位地址一旦随包发布，等于告诉用户「报漏洞发到黑洞」。
+    """
+    archive_path, _ = packaged
+    # 只拦「联系方式类」占位：配置示例里的 api.example.com 是合法示例域名，不该误伤。
+    placeholders = ("security@example.com", "your-email@", "<email>", "TO" + "DO:", "FIXME:")
+    offenders: list[str] = []
+    with zipfile.ZipFile(archive_path) as zf:
+        for name in zf.namelist():
+            if not name.endswith((".md", ".yaml", ".yml")):
+                continue
+            text = zf.read(name).decode("utf-8", errors="replace")
+            for token in placeholders:
+                if token in text:
+                    offenders.append(f"{name}: {token}")
+    assert not offenders, f"包内文档仍有占位内容: {offenders}"
