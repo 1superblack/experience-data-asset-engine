@@ -121,3 +121,18 @@ def test_scripts_entrypoint_runs_from_repo_root():
     )
     assert result.returncode == EXIT_OK, result.stderr
     assert "0.1.0" in result.stdout
+
+
+def test_module_entrypoint_runs():
+    env = dict(PYTHONPATH=str(ROOT / "src"), PYTHONIOENCODING="utf-8")
+    result = subprocess.run(
+        [sys.executable, "-m", "obsidian_knowledge_distiller", "--version"],
+        cwd=str(ROOT),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        env=env,
+    )
+    assert result.returncode == EXIT_OK, result.stderr
+    assert "0.1.0" in result.stdout

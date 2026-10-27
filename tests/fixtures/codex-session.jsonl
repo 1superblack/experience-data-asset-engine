@@ -1,0 +1,9 @@
+{"timestamp":"2026-10-27T02:00:00.000Z","type":"session_meta","payload":{"id":"019abc","timestamp":"2026-10-27T02:00:00.000Z","cwd":"/path/to/project","originator":"codex_cli_rs","cli_version":"0.1.0","instructions":"synthetic fixture"}}
+{"timestamp":"2026-10-27T02:00:05.000Z","type":"turn_context","payload":{"cwd":"/path/to/project","model":"demo-model"}}
+{"timestamp":"2026-10-27T02:00:10.000Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"把这次会话整理成知识笔记"}]}}
+{"timestamp":"2026-10-27T02:00:12.000Z","type":"response_item","payload":{"type":"function_call","name":"shell","arguments":"{\"command\":[\"ls\"]}","call_id":"call_1"}}
+{"timestamp":"2026-10-27T02:00:13.000Z","type":"response_item","payload":{"type":"function_call_output","call_id":"call_1","output":"a\nb\nc"}}
+{"timestamp":"2026-10-27T02:00:20.000Z","type":"event_msg","payload":{"type":"exec_command_end","command":["ls"],"exit_code":0}}
+{"timestamp":"2026-10-27T02:00:30.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"先锁定数据协议，再实现输入适配器。"}]}}
+{"timestamp":"2026-10-27T02:00:35.000Z","type":"event_msg","payload":{"type":"token_count","info":{}}}
+{"timestamp":"2026-10-27T02:00:40.000Z","type":"event_msg","payload":{"type":"task_complete","last_agent_message":"先锁定数据协议，再实现输入适配器。"}}
