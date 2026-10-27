@@ -87,7 +87,14 @@ def test_no_wrapping_subdirectory(packaged: tuple[Path, str]) -> None:
 def test_required_members_present(packaged: tuple[Path, str]) -> None:
     archive_path, _ = packaged
     names = set(_names(archive_path))
-    required = {"SKILL.md", "LICENSE", "README.md", "CHANGELOG.md", "agents/openai.yaml"}
+    required = {
+        "SKILL.md",
+        "LICENSE",
+        "README.md",
+        "CHANGELOG.md",
+        "SECURITY.md",
+        "agents/openai.yaml",
+    }
     assert required <= names
     for prefix in ("scripts/", "src/", "references/"):
         assert any(name.startswith(prefix) for name in names), f"缺少 {prefix}"
