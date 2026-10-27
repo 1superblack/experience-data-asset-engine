@@ -1,0 +1,668 @@
+"""Obsidian 安全写入与幂等（Task 8）。
+
+写入是整套工具唯一会改动用户磁盘的动作，因此这里的规则比其它模块更硬：
+
+1. **只写 vault 内**：``<archive_dir>/<project>/<title>.md``，落盘前所有路径都用
+   ``resolve_safely`` 解析并确认仍在 vault 与 archive_dir 之内；符号链接逃逸一律拒绝。
+2. **不覆盖别人的笔记**：目标文件存在但不是我写的（没有生成器标记或状态键不匹配），
+   只写 ``<title>.pending.md``，绝不覆盖；pending 已存在也不覆盖。
+3. **原子替换**：先写同目录临时文件再 ``os.replace``，不留半截 Markdown。
+4. **幂等**：同一 ``source + session_id`` 内容没变就是 ``skipped``，文件字节一个都不动。
+5. **dry-run 零写入**：不建目录、不写 Markdown、不写 state、不写 audit。
+6. **写入边界再脱敏**：不信任上游模型，Markdown 落盘前再过一遍 ``redact_sensitive``。
+7. **不删不移**：不删除、不移动任何用户笔记，也不自动清理旧版本。
+
+frontmatter 的渲染与解析都放在本模块，作为「落盘格式」的唯一口径；
+``validator.py`` 直接复用 ``parse_frontmatter``，避免两套格式定义漂移。
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import re
+import tempfile
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from datetime import date, datetime, timezone
+from pathlib import Path
+from typing import Any, Final
+
+from .config import AppConfig, ensure_inside_vault, read_json_file, write_json_atomic
+from .errors import ConfigError, SchemaError
+from .lifecycle import compute_review_after
+from .models import DistilledNote, NormalizedSession
+from .noise import redact_sensitive
+
+GENERATOR: Final = "experience-data-asset-engine"
+FRONTMATTER_FENCE: Final = "---"
+PENDING_SUFFIX: Final = ".pending"
+STATE_SCHEMA_VERSION: Final = 1
+MAX_PENDING_ATTEMPTS: Final = 12
+
+#: 写入动作。
+ACTION_CREATED: Final = "created"
+ACTION_UPDATED: Final = "updated"
+ACTION_SKIPPED: Final = "skipped"
+ACTION_PENDING: Final = "pending"
+
+#: frontmatter 必填字段（顺序即渲染顺序）。
+FRONTMATTER_FIELDS: Final = (
+    "tags",
+    "项目",
+    "主题",
+    "状态",
+    "内容时效",
+    "created",
+    "updated",
+    "valid_from",
+    "review_after",
+    "取代自",
+    "取代为",
+    "来源",
+    "会话ID",
+    "内容哈希",
+    "生成器",
+    "状态键",
+)
+
+#: Obsidian / Windows 都不接受的文件名字符。
+_ILLEGAL_NAME_CHARS: Final = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+_WINDOWS_RESERVED: Final = {
+    "CON",
+    "PRN",
+    "AUX",
+    "NUL",
+    *(f"COM{index}" for index in range(1, 10)),
+    *(f"LPT{index}" for index in range(1, 10)),
+}
+
+
+# --- 结果类型 ---------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class WriteResult:
+    """一次写入的结论。``action`` 只会是 created / updated / skipped / pending。"""
+
+    path: Path
+    action: str
+    content_hash: str
+    dry_run: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "path": str(self.path),
+            "action": self.action,
+            "content_hash": self.content_hash,
+            "dry_run": self.dry_run,
+        }
+
+
+# --- 时间与哈希 -------------------------------------------------------------
+
+
+def _today() -> date:
+    """当前日期。测试通过 monkeypatch 本函数固定基准日，不读隐式 today。"""
+    return datetime.now(timezone.utc).date()
+
+
+def content_hash_of(note: DistilledNote, session: NormalizedSession) -> str:
+    """内容指纹：笔记内容 + 来源会话标识。
+
+    只用于判断「同一份内容是否已经写过」，因此**不包含**写入时间，
+    否则每次写入都会算出不同哈希，幂等就失效了。
+    """
+    payload = {
+        "note": note.to_dict(),
+        "source": session.source,
+        "session_id": session.session_id,
+    }
+    blob = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
+def state_key_of(session: NormalizedSession) -> str:
+    """幂等键：与 ``NormalizedSession.state_key`` 同源，不把 session_id 当路径。"""
+    return session.state_key
+
+
+# --- 名称安全 ---------------------------------------------------------------
+
+
+def _scrub(text: str) -> str:
+    """落盘前的最后一道脱敏。
+
+    上游蒸馏模型产出的正文同样不可信：它可能把会话里的密钥、Cookie、
+    Authorization 头原样抄进笔记。写入端不假设上游已清洗，逐字段再过一遍。
+    """
+    if not isinstance(text, str):
+        raise SchemaError("待脱敏内容必须是字符串")
+    redacted, _ = redact_sensitive(text)
+    return redacted
+
+
+def safe_component(name: str, label: str = "名称") -> str:
+    """把一段文本变成安全的单级文件/目录名。
+
+    先脱敏，再按路径规则校验：脱敏不能成为绕开路径校验的后门。
+    """
+    if not isinstance(name, str):
+        raise SchemaError(f"{label} 必须是字符串")
+    candidate = _scrub(name).strip()
+    if not candidate:
+        raise SchemaError(f"{label} 脱敏后为空，拒绝写入")
+    if _ILLEGAL_NAME_CHARS.search(candidate):
+        raise SchemaError(f"{label} 含非法字符（不能用于文件名）：{candidate!r}")
+    if candidate.startswith("."):
+        raise SchemaError(f"{label} 不能以点开头（会生成隐藏文件）：{candidate!r}")
+    if candidate.endswith(".") or candidate.endswith(" "):
+        raise SchemaError(f"{label} 不能以点或空格结尾：{candidate!r}")
+    if candidate.split(".")[0].upper() in _WINDOWS_RESERVED:
+        raise SchemaError(f"{label} 不能使用 Windows 保留名：{candidate!r}")
+    return candidate
+
+
+# --- frontmatter 渲染 -------------------------------------------------------
+
+_UNSAFE_YAML_START: Final = re.compile(r"^[\s\-?:,\[\]{}#&*!|>'\"%@`]")
+#: 逗号必须算「需要加引号」：``[a, b]`` 形式下未加引号的逗号会被拆成两个元素。
+_UNSAFE_YAML_CONTAINS: Final = re.compile(r"[:,#\[\]{}\n\r\t]")
+
+_YAML_ESCAPES: Final = {'"': '"', "\\": "\\", "n": "\n", "t": "\t", "r": "\r"}
+#: 看起来像数字的字符串必须加引号，否则回到解析端会被当成 int。
+#: 哈希是全十六进制串，纯数字的哈希（如 ``"1"*64``）不引号就会丢类型，
+#: 进而让「内容没变」误判成「内容变了」。
+_NUMERIC_LIKE: Final = re.compile(r"^-?\d+(\.\d+)?$")
+
+
+def _yaml_escape(text: str) -> str:
+    out: list[str] = []
+    for char in text:
+        if char in {'"', "\\"}:
+            out.append("\\" + char)
+        elif char == "\n":
+            out.append("\\n")
+        elif char == "\t":
+            out.append("\\t")
+        elif char == "\r":
+            out.append("\\r")
+        else:
+            out.append(char)
+    return "".join(out)
+
+
+def _yaml_scalar(value: Any) -> str:
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return str(value)
+    text = str(value)
+    if text == "":
+        return '""'
+    needs_quote = bool(
+        _UNSAFE_YAML_START.search(text)
+        or _UNSAFE_YAML_CONTAINS.search(text)
+        or text.strip() != text
+        or _NUMERIC_LIKE.match(text)
+        or text.lower() in {"null", "true", "false", "yes", "no", "~"}
+    )
+    if not needs_quote:
+        return text
+    return f'"{_yaml_escape(text)}"'
+
+
+def _yaml_list(values: Sequence[str]) -> str:
+    if not values:
+        return "[]"
+    return "[" + ", ".join(_yaml_scalar(item) for item in values) + "]"
+
+
+def render_frontmatter(fields: Mapping[str, Any]) -> str:
+    """按固定字段顺序渲染 frontmatter（含首尾分隔线）。"""
+    lines = [FRONTMATTER_FENCE]
+    for key in FRONTMATTER_FIELDS:
+        if key not in fields:
+            raise SchemaError(f"frontmatter 缺少必填字段 {key}")
+        value = fields[key]
+        rendered = _yaml_list(value) if isinstance(value, (list, tuple)) else _yaml_scalar(value)
+        lines.append(f"{key}: {rendered}")
+    lines.append(FRONTMATTER_FENCE)
+    return "\n".join(lines)
+
+
+def parse_frontmatter(text: str) -> tuple[dict[str, Any], str]:
+    """解析本工具渲染的 frontmatter，返回 (字段字典, 正文)。
+
+    只支持本项目实际写出的 YAML 子集：``key: 标量`` 与 ``key: [a, b]``。
+    解析失败抛 ``SchemaError``——绝不把解析不了的文件当成合法笔记。
+    """
+    if not isinstance(text, str):
+        raise SchemaError("笔记内容必须是字符串")
+    normalized = text.replace("\r\n", "\n").replace("\r", "\n")
+    if not normalized.startswith(FRONTMATTER_FENCE + "\n"):
+        raise SchemaError("缺少 frontmatter 起始分隔线 ---")
+    lines = normalized.split("\n")
+    fields: dict[str, Any] = {}
+    closing = None
+    for index in range(1, len(lines)):
+        line = lines[index]
+        if line.strip() == FRONTMATTER_FENCE:
+            closing = index
+            break
+        if not line.strip():
+            continue
+        if ":" not in line:
+            raise SchemaError(f"frontmatter 第 {index + 1} 行不是 key: value 形式")
+        key, _, raw = line.partition(":")
+        key = key.strip()
+        if not key:
+            raise SchemaError(f"frontmatter 第 {index + 1} 行缺少键名")
+        if key in fields:
+            raise SchemaError(f"frontmatter 出现重复键 {key}")
+        fields[key] = _parse_scalar(raw.strip())
+    if closing is None:
+        raise SchemaError("frontmatter 缺少结束分隔线 ---")
+    body = "\n".join(lines[closing + 1 :])
+    # frontmatter 与正文之间按惯例空一行；这不属于正文内容，去掉以免每次往返多一个空行。
+    return fields, body.lstrip("\n")
+
+
+def _split_list_items(inner: str) -> list[str]:
+    """按逗号切分列表项，但引号内的逗号不切（项目名可能带逗号）。"""
+    items: list[str] = []
+    buffer: list[str] = []
+    in_quotes = False
+    escaped = False
+    for char in inner:
+        if escaped:
+            buffer.append(char)
+            escaped = False
+            continue
+        if in_quotes and char == "\\":
+            buffer.append(char)
+            escaped = True
+            continue
+        if char == '"':
+            in_quotes = not in_quotes
+            buffer.append(char)
+            continue
+        if char == "," and not in_quotes:
+            items.append("".join(buffer).strip())
+            buffer = []
+            continue
+        buffer.append(char)
+    items.append("".join(buffer).strip())
+    return [item for item in items if item]
+
+
+def _unquote(raw: str) -> str:
+    """按渲染时的转义顺序反向还原（逐字符扫描，不用 replace 链）。"""
+    if len(raw) < 2 or not (raw.startswith('"') and raw.endswith('"')):
+        return raw
+    out: list[str] = []
+    index = 1
+    end = len(raw) - 1
+    while index < end:
+        char = raw[index]
+        if char == "\\" and index + 1 < end:
+            nxt = raw[index + 1]
+            out.append(_YAML_ESCAPES.get(nxt, nxt))
+            index += 2
+            continue
+        out.append(char)
+        index += 1
+    return "".join(out)
+
+
+def _parse_scalar(raw: str) -> Any:
+    if raw == "" or raw == "null" or raw == "~":
+        return None
+    if raw.startswith("[") and raw.endswith("]"):
+        inner = raw[1:-1].strip()
+        if not inner:
+            return []
+        return [_parse_scalar(part) for part in _split_list_items(inner)]
+    if raw.startswith('"') and raw.endswith('"') and len(raw) >= 2:
+        return _unquote(raw)
+    if raw.lower() in {"true", "false"}:
+        return raw.lower() == "true"
+    if re.fullmatch(r"-?\d+", raw):
+        return int(raw)
+    return raw
+
+
+# --- 正文渲染 ---------------------------------------------------------------
+
+
+def _bullets(items: Sequence[str], empty: str = "无") -> str:
+    if not items:
+        return empty
+    return "\n".join(f"- {_scrub(item)}" for item in items)
+
+
+def _decisions_block(note: DistilledNote) -> str:
+    blocks: list[str] = []
+    for index, decision in enumerate(note.decisions, start=1):
+        blocks.append(f"### {index}. {_scrub(decision.decision)}")
+        blocks.append("")
+        blocks.append(f"理由：{_scrub(decision.reason)}")
+        if decision.rejected:
+            blocks.append("")
+            blocks.append("被否决方案：")
+            blocks.append("")
+            blocks.append(_bullets(decision.rejected))
+        blocks.append("")
+    return "\n".join(blocks).rstrip()
+
+
+def render_body(note: DistilledNote, title: str | None = None) -> str:
+    """渲染笔记正文（不含 frontmatter）。
+
+    ``title`` 由调用方传入已经过 ``safe_component`` 的同一条字符串，
+    保证正文标题与文件名不会出现一份脱敏、一份原文的错位。
+    """
+    heading = title if title is not None else safe_component(note.title, "标题")
+    sections = [
+        ("摘要", _scrub(note.summary)),
+        ("背景", _scrub(note.background)),
+        ("诊断", _bullets(note.diagnosis)),
+        ("决策", _decisions_block(note)),
+        ("证据", _bullets(note.evidence)),
+        ("可复用", _bullets(note.reusable)),
+        ("风险", _bullets(note.risks)),
+        ("待办", _bullets(note.todo)),
+    ]
+    parts = [f"# {heading}", ""]
+    for section_heading, content in sections:
+        parts.append(f"## {section_heading}")
+        parts.append("")
+        parts.append(content if content else "无")
+        parts.append("")
+    return "\n".join(parts).rstrip() + "\n"
+
+
+def render_note(
+    note: DistilledNote,
+    session: NormalizedSession,
+    content_hash: str,
+    created: str,
+    updated: str,
+    title: str | None = None,
+    project: str | None = None,
+) -> str:
+    """渲染完整 Markdown（frontmatter + 正文）。
+
+    ``title`` / ``project`` 不传时内部按 ``safe_component`` 规范化，
+    保证与写入路径使用的名称逐字一致。
+    """
+    safe_title = title if title is not None else safe_component(note.title, "标题")
+    safe_project = project if project is not None else safe_component(note.project, "项目名")
+    fields = {
+        "tags": ["对话存档", safe_project, note.volatility_label],
+        "项目": safe_project,
+        "主题": safe_title,
+        "状态": note.status,
+        "内容时效": note.volatility_label,
+        "created": created,
+        "updated": updated,
+        "valid_from": created,
+        "review_after": note.review_after,
+        "取代自": [],
+        "取代为": [],
+        "来源": session.source,
+        "会话ID": session.session_id,
+        "内容哈希": content_hash,
+        "生成器": GENERATOR,
+        "状态键": state_key_of(session),
+    }
+    return render_frontmatter(fields) + "\n\n" + render_body(note, safe_title)
+
+
+# --- state / audit ----------------------------------------------------------
+
+
+def _load_state(config: AppConfig) -> dict[str, Any]:
+    ensure_inside_vault(config.vault, config.state_dir)
+    ensure_inside_vault(config.vault, config.state_path)
+    path = config.state_path
+    if not path.exists():
+        return {"schema_version": STATE_SCHEMA_VERSION, "entries": {}}
+    try:
+        payload = read_json_file(path)
+    except ConfigError as exc:
+        raise ConfigError(f"state.json 无法读取，为避免覆盖历史记录已停止：{exc}") from exc
+    if not isinstance(payload, dict):
+        raise ConfigError("state.json 结构损坏（顶层不是对象），已停止写入")
+    entries = payload.get("entries")
+    if entries is None:
+        payload["entries"] = {}
+    elif not isinstance(entries, dict):
+        raise ConfigError("state.json 的 entries 不是对象，已停止写入")
+    payload.setdefault("schema_version", STATE_SCHEMA_VERSION)
+    return payload
+
+
+def _append_audit(config: AppConfig, record: Mapping[str, Any]) -> Path:
+    """追加一行审计。只记路径、哈希、动作、计数，不记对话原文与凭据。"""
+    audit_dir = config.audit_dir
+    ensure_inside_vault(config.vault, audit_dir)
+    audit_dir.mkdir(parents=True, exist_ok=True)
+    ensure_inside_vault(config.vault, audit_dir)
+    log_path = audit_dir / "write-audit.jsonl"
+    ensure_inside_vault(config.vault, log_path)
+    line = json.dumps(dict(record), ensure_ascii=False, sort_keys=True)
+    with open(log_path, "a", encoding="utf-8", newline="\n") as handle:
+        handle.write(line + "\n")
+        handle.flush()
+        os.fsync(handle.fileno())
+    return log_path
+
+
+# --- 原子写入 ---------------------------------------------------------------
+
+
+def _write_text_atomic(path: Path, text: str) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(dir=str(path.parent), prefix=".edae-", suffix=".md.tmp")
+    tmp_path = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
+            handle.write(text)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(tmp_path, path)
+    except BaseException:
+        tmp_path.unlink(missing_ok=True)
+        raise
+    return path
+
+
+def _is_ours(existing: Path, state_key: str) -> bool:
+    """目标文件是否由本工具写入且归属同一 state_key。"""
+    try:
+        text = existing.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return False
+    try:
+        fields, _ = parse_frontmatter(text)
+    except SchemaError:
+        return False
+    return fields.get("生成器") == GENERATOR and fields.get("状态键") == state_key
+
+
+def _pending_candidates(target: Path, content_hash: str) -> list[Path]:
+    stem = target.name[: -len(target.suffix)] if target.suffix else target.name
+    suffix = target.suffix or ".md"
+    candidates = [target.with_name(f"{stem}{PENDING_SUFFIX}{suffix}")]
+    candidates.append(target.with_name(f"{stem}{PENDING_SUFFIX}-{content_hash[:8]}{suffix}"))
+    for index in range(2, MAX_PENDING_ATTEMPTS + 1):
+        candidates.append(
+            target.with_name(f"{stem}{PENDING_SUFFIX}-{content_hash[:8]}-{index}{suffix}")
+        )
+    return candidates
+
+
+# --- 主入口 -----------------------------------------------------------------
+
+
+def write_note(
+    note: DistilledNote,
+    session: NormalizedSession,
+    config: AppConfig,
+    dry_run: bool = False,
+) -> WriteResult:
+    """把蒸馏笔记写进 vault。返回实际发生的动作，绝不静默成功。"""
+    project = safe_component(note.project, "项目名")
+    title = safe_component(note.title, "标题")
+
+    archive_dir = ensure_inside_vault(config.vault, config.archive_dir)
+    target = archive_dir / project / f"{title}.md"
+    ensure_inside_vault(config.vault, target)
+    ensure_inside_vault(archive_dir, target)
+
+    content_hash = content_hash_of(note, session)
+    state_key = state_key_of(session)
+    today = _today().isoformat()
+
+    state = _load_state(config)
+
+    if target.exists():
+        if not _is_ours(target, state_key):
+            return _write_pending(target, content_hash, session, config, dry_run)
+        try:
+            previous_hash = parse_frontmatter(target.read_text(encoding="utf-8"))[0].get(
+                "内容哈希"
+            )
+        except (SchemaError, OSError, UnicodeDecodeError):
+            return _write_pending(target, content_hash, session, config, dry_run)
+        if previous_hash == content_hash:
+            return WriteResult(target, ACTION_SKIPPED, content_hash, dry_run)
+        created = _created_of(target, today)
+        text = render_note(note, session, content_hash, created, today, title, project)
+        if dry_run:
+            return WriteResult(target, ACTION_UPDATED, content_hash, True)
+        _write_text_atomic(target, text)
+        _record_success(
+            config, state, state_key, target, note, session, content_hash, today, ACTION_UPDATED
+        )
+        return WriteResult(target, ACTION_UPDATED, content_hash, False)
+
+    text = render_note(note, session, content_hash, today, today, title, project)
+    if dry_run:
+        return WriteResult(target, ACTION_CREATED, content_hash, True)
+    _write_text_atomic(target, text)
+    _record_success(
+        config, state, state_key, target, note, session, content_hash, today, ACTION_CREATED
+    )
+    return WriteResult(target, ACTION_CREATED, content_hash, False)
+
+
+def _created_of(existing: Path, fallback: str) -> str:
+    try:
+        fields, _ = parse_frontmatter(existing.read_text(encoding="utf-8"))
+    except (SchemaError, OSError, UnicodeDecodeError):
+        return fallback
+    created = fields.get("created")
+    return created if isinstance(created, str) and created else fallback
+
+
+def _write_pending(
+    target: Path,
+    content_hash: str,
+    session: NormalizedSession,
+    config: AppConfig,
+    dry_run: bool,
+) -> WriteResult:
+    """目标被用户笔记占用：只写 pending，绝不覆盖。"""
+    chosen: Path | None = None
+    for candidate in _pending_candidates(target, content_hash):
+        ensure_inside_vault(config.vault, config.archive_dir)
+        ensure_inside_vault(config.vault, candidate)
+        ensure_inside_vault(config.archive_dir, candidate)
+        if not candidate.exists():
+            chosen = candidate
+            break
+    if chosen is None:
+        raise ConfigError(
+            f"目标笔记被占用且 pending 名额已用尽，为避免覆盖已停止写入：{target}"
+        )
+    if dry_run:
+        return WriteResult(chosen, ACTION_PENDING, content_hash, True)
+    payload = {
+        "待合并到": target.name,
+        "内容哈希": content_hash,
+        "来源": session.source,
+        "状态键": state_key_of(session),
+        "生成时间": datetime.now(timezone.utc).isoformat(),
+        "提示": "目标笔记已存在且不是本工具生成，本文件仅为候选内容，未覆盖原笔记。",
+    }
+    _write_text_atomic(chosen, json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
+    _append_audit(
+        config,
+        {
+            "at": datetime.now(timezone.utc).isoformat(),
+            "action": ACTION_PENDING,
+            "path": str(chosen),
+            "content_hash": content_hash,
+            "source": session.source,
+            "状态键": state_key_of(session),
+            "blocked_by": str(target),
+        },
+    )
+    return WriteResult(chosen, ACTION_PENDING, content_hash, False)
+
+
+def _record_success(
+    config: AppConfig,
+    state: dict[str, Any],
+    state_key: str,
+    target: Path,
+    note: DistilledNote,
+    session: NormalizedSession,
+    content_hash: str,
+    today: str,
+    action: str,
+) -> None:
+    """落 state 与审计。
+
+    ``action`` 由调用方传入真实的写入动作——这里无法从 state 反推，
+    早期版本用 ``state_key not in {}`` 判断，恒为 created，是错的。
+    """
+    entries = state.setdefault("entries", {})
+    safe_project = _scrub(note.project)
+    safe_title = _scrub(note.title)
+    entries[state_key] = {
+        "path": target.relative_to(config.vault).as_posix(),
+        "content_hash": content_hash,
+        "source": session.source,
+        "project": safe_project,
+        "title": safe_title,
+        "status": note.status,
+        "content_volatility": note.content_volatility,
+        "review_after": note.review_after,
+        "updated": today,
+    }
+    ensure_inside_vault(config.vault, config.state_path)
+    write_json_atomic(config.state_path, state)
+    _append_audit(
+        config,
+        {
+            "at": datetime.now(timezone.utc).isoformat(),
+            "action": action,
+            "path": str(target),
+            "content_hash": content_hash,
+            "source": session.source,
+            "状态键": state_key,
+            "project": safe_project,
+            "status": note.status,
+        },
+    )
+
+
+def review_date_for(note: DistilledNote, base: date) -> date:
+    """按笔记的时效等级算出复核日期（供写入端与 CLI 复用）。"""
+    return compute_review_after(base, note.content_volatility)
