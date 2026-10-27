@@ -49,6 +49,8 @@
 - **doctor 越界即停**：归档路径越界时只报 `archive.inside_vault=error` 并立即停止，
   不再访问相对路径（原先会抛未捕获 `ValueError`）；vault 不可用或路径越界时**不写任何探针**，
   只返回结构化诊断。
+- **解析失败也失败关闭**：路径解析遇到损坏链接 / 链接环抛 `OSError` 时统一转成 `ConfigError`，
+  不让 `OSError` 漏到 CLI 或 doctor 外层。
 - 探针文件名统一为 `.edae-probe-*.tmp`。
 
 ### 已知限制

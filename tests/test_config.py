@@ -459,6 +459,17 @@ def test_probe_file_uses_edae_prefix(tmp_path, monkeypatch):
     assert list(tmp_path.iterdir()) == []
 
 
+def test_ensure_inside_vault_wraps_unresolvable_path(tmp_path, monkeypatch):
+    """损坏的符号链接 / 链接环会让 resolve() 抛 OSError，必须转成 ConfigError。"""
+
+    def boom(self, *args, **kwargs):
+        raise OSError("too many levels of symbolic links")
+
+    monkeypatch.setattr(Path, "resolve", boom)
+    with pytest.raises(ConfigError, match="outside vault"):
+        config_module.ensure_inside_vault(tmp_path, tmp_path / "x.md")
+
+
 def test_doctor_errors_when_archive_path_is_a_file(tmp_path):
     config = make_config(tmp_path, archive_exists=False)
     config.archive_dir.write_text("i am a file", encoding="utf-8")

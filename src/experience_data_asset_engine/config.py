@@ -102,13 +102,24 @@ class AppConfig:
 # --- 路径边界 ---------------------------------------------------------------
 
 
+def _resolve_for_boundary(path: Path) -> Path:
+    """解析真实路径；解析失败（损坏的符号链接、链接环）一律失败关闭。"""
+    try:
+        return Path(path).resolve()
+    except OSError as exc:
+        raise ConfigError(
+            f"无法解析路径（可能是损坏的符号链接），拒绝访问（outside vault）: {path}（{exc}）"
+        ) from exc
+
+
 def ensure_inside_vault(base: Path, target: Path) -> Path:
     """确认 target 解析后仍在 base 内，返回解析后的绝对路径。
 
     符号链接会先被解析，因此「通过符号链接跳到 vault 外」同样会被拒绝。
+    解析本身失败时也抛 ``ConfigError``，不允许把 ``OSError`` 漏给调用方。
     """
-    base_resolved = Path(base).resolve()
-    target_resolved = Path(target).resolve()
+    base_resolved = _resolve_for_boundary(base)
+    target_resolved = _resolve_for_boundary(target)
     if target_resolved.is_relative_to(base_resolved):
         return target_resolved
     raise ConfigError(f"拒绝访问 vault 之外的路径（outside vault）: {target}")
