@@ -17,9 +17,9 @@
 
 ## 安装
 
+把仓库放到本地任意目录，在仓库根目录执行：
+
 ```bash
-git clone https://github.com/hei-chaoren/obsidian-knowledge-distiller.git
-cd obsidian-knowledge-distiller
 python -m pip install -e ".[dev,codex]"
 ```
 

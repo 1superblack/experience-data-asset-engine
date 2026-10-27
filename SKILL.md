@@ -6,7 +6,6 @@ metadata:
   slug: ai-conversation-knowledge-distiller
   displayName: 对话知识蒸馏器
   version: 0.1.0
-  homepage: https://github.com/hei-chaoren/obsidian-knowledge-distiller
 ---
 
 # AI 对话知识蒸馏器

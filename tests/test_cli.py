@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import runpy
 import subprocess
 import sys
 from pathlib import Path
@@ -136,3 +137,11 @@ def test_module_entrypoint_runs():
     )
     assert result.returncode == EXIT_OK, result.stderr
     assert "0.1.0" in result.stdout
+
+
+def test_module_main_guard_exits_with_code(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", ["obsidian-knowledge-distiller", "--version"])
+    with pytest.raises(SystemExit) as exc:
+        runpy.run_module("obsidian_knowledge_distiller", run_name="__main__")
+    assert exc.value.code == EXIT_OK
+    assert "0.1.0" in capsys.readouterr().out
