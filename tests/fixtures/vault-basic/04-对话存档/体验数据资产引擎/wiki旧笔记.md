@@ -1,0 +1,22 @@
+---
+tags: [对话存档, 体验数据资产引擎, 演进]
+项目: 体验数据资产引擎
+主题: wiki旧笔记
+状态: 已被取代
+内容时效: 演进
+created: 2026-10-27
+updated: 2026-10-27
+valid_from: 2026-10-27
+review_after: 2027-01-25
+取代自: []
+取代为: [wiki新笔记.md]
+来源: codex
+会话ID: sess-wiki旧笔记
+内容哈希: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+生成器: experience-data-asset-engine
+状态键: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+---
+
+# wiki旧笔记
+
+合成样本，仅用于校验测试。

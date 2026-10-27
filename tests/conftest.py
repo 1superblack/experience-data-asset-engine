@@ -6,6 +6,7 @@ tests/fixtures 中的合成样本。
 
 from __future__ import annotations
 
+import shutil
 import sys
 import urllib.request
 from pathlib import Path
@@ -57,3 +58,17 @@ def sample_vault(tmp_path: Path) -> Path:
     vault = tmp_path / "vault"
     (vault / ".obsidian").mkdir(parents=True)
     return vault
+
+
+@pytest.fixture
+def basic_vault(tmp_path: Path) -> Path:
+    """把 ``tests/fixtures/vault-basic`` 复制成临时 vault，并补上 ``.obsidian``。
+
+    fixture 目录里只存 Markdown：``.obsidian`` 是空目录，git 不跟踪空目录，
+    也没必要为它存一个占位文件，所以在测试里补。
+    复制而不是直接指向 fixture，是为了让用例可以在副本上随意加笔记而不污染样本。
+    """
+    target = tmp_path / "vault"
+    shutil.copytree(FIXTURES / "vault-basic", target)
+    (target / ".obsidian").mkdir(exist_ok=True)
+    return target
