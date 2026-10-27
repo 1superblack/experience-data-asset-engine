@@ -18,8 +18,9 @@
 | `progress` | 14 天 | 进度快照，只在短期内可信 |
 
 - `review_after = base_date + 周期`，用 `date + timedelta`，跨月/跨年/闰年由标准库处理。
-- 可以在 config 里按需覆盖（`policy: {volatility: days}`）；覆盖值必须是正整数天数，
-  出现未知等级或非正整数直接报错，不静默忽略。
+- 周期常量在 `lifecycle.DEFAULT_REVIEW_DAYS`。**本版本没有 config 级覆盖开关**：
+  `AppConfig` 里没有 `policy` 字段，读到未知配置键也不会生效（见 `references/config.md`
+  的字段表）。需要不同周期，只能在调用 `compute_review_after` 前自行传入或改代码。
 
 ## 3. 可检索性
 
@@ -51,7 +52,10 @@
 
 ## 5. 与写入/检索的接线
 
-- 写入时：`content_volatility` 由蒸馏给出（或本模块建议），`review_after` 由
-  `compute_review_after(valid_from, volatility)` 算出并写进 frontmatter。
+- `compute_review_after(valid_from, volatility)` 提供「按周期算日期」这个能力，但**目前没有
+  接入归档主链路**：`writer.py` 直接写 `DistilledNote.review_after`，只校验 `YYYY-MM-DD` 格式，
+  不会用 `content_volatility` 重算覆盖。要让它生效，必须由蒸馏端（人或 Agent）按上面的周期
+  算好再填进 `review_after`。
+- 写入时：`content_volatility` 决定 frontmatter 的 `内容时效` 标签；`review_after` 原样落盘。
 - 检索时：`iter_notes(config, include_stale=False)` 只返回 `有效` / `待复核`。
 - 复核时：`recheck --due` 用 `is_due(review_after, today)` 列出候选，**只列不改**。

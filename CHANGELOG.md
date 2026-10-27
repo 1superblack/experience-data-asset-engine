@@ -25,6 +25,17 @@
 - **新增 `tests/test_skill_metadata.py`**：断言 frontmatter 六项元数据、slug/version/displayName
   取值、`agents/openai.yaml` 与 `SKILL.md` 的 displayName 一致、README 关键小节齐备，
   以及文档中不出现个人目录、用户名、账号等本机路径痕迹。不引入 PyYAML，frontmatter 用文本解析。
+- **删掉两类未实现的承诺**（审计发现，文档与 `src/` 对不上）：
+  - `references/expiry-policy.md` 原称「可在 config 里按 `policy: {volatility: days}` 覆盖周期」，
+    实际 `AppConfig` 没有 `policy` 字段，改为如实说明「本版本无 config 级覆盖开关」。
+  - 同文件原称「写入时 `review_after` 由 `compute_review_after()` 算出」，
+    实际该函数没有任何生产调用点，`writer.py` 直接写 `DistilledNote.review_after`（只校验格式）；
+    README 同步补「`review_after` 是写入时的输入，不是写入时自动算出来的」，
+    并把「会自动老化管理」改为「带状态与复核日期」。
+  - `SKILL.md` description 原写「按状态过滤…检索笔记」，但 CLI 没有搜索子命令，
+    改为「在校验、统计时默认排除已过时与已被取代的笔记」；README 同步注明检索由
+    Obsidian 查询或 `iter_notes()` 完成。
+  - `CHANGELOG` 原引用的 `quick_validate.py` 不在本仓库，改为描述校验器的键约束。
 
 ### 命名
 
@@ -200,5 +211,6 @@
 - **pending 候选需要人工合并**：写入冲突时只落可合并的 Markdown 候选，不会自动替换或删除原笔记。
 - 语义级冲突（「这个结论后来被推翻了」）不在降噪层判断，留给蒸馏阶段；
   口径见 `references/noise-policy.md`。
-- `quick_validate.py` 只接受 `name` / `description` / `license` / `allowed-tools` /
-  `metadata` 五个顶层键，因此 `slug`、`displayName`、`version` 放在 `metadata` 下。
+- Skill 元数据校验器只接受 `name` / `description` / `license` / `allowed-tools` / `metadata`
+  五个顶层键（该脚本由 Skill 运行时提供，不在本仓库内），因此 `slug`、`displayName`、
+  `version` 放在 `metadata` 下。

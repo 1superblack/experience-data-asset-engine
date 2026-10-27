@@ -232,3 +232,43 @@ def test_references_are_reachable_from_skill() -> None:
     text = SKILL_PATH.read_text(encoding="utf-8")
     missing = [item.name for item in REFERENCE_PATHS if f"references/{item.name}" not in text]
     assert not missing, f"SKILL.md 未路由这些 reference: {missing}"
+
+
+# --- 不得承诺未实现的能力 ----------------------------------------------------
+#
+# 这些措辞在历史上都出现过，但 src/ 里没有对应实现（审计已确认）：
+#   - `policy: {volatility: days}`：AppConfig 没有 policy 字段；
+#   - 写入时由 compute_review_after() 算 review_after：该函数零生产调用点；
+#   - 「检索笔记」：CLI 没有 search 子命令，只有 validate / status 的计数过滤；
+#   - quick_validate.py：本仓库不存在该文件。
+FORBIDDEN_CLAIMS = {
+    "config 覆盖复核周期": r"policy:\s*\{",
+    "自动重算 review_after": r"review_after`? 由\s*`?compute_review_after",
+    "不存在的检索子命令": r"检索笔记",
+    "不存在的校验脚本": r"quick_validate",
+}
+
+
+@pytest.mark.parametrize(
+    "path",
+    [item for item in _documents() if item != CHANGELOG_PATH],
+    ids=lambda item: item.name,
+)
+def test_documents_make_no_unimplemented_promise(path: Path) -> None:
+    # CHANGELOG 例外：它必须能点名「曾经写错的承诺」，否则无法记录修复本身。
+    text = path.read_text(encoding="utf-8")
+    hits = [name for name, pattern in FORBIDDEN_CLAIMS.items() if re.search(pattern, text)]
+    assert not hits, f"{path.name} 承诺了未实现的能力: {hits}"
+
+
+def test_readme_states_review_after_is_an_input() -> None:
+    """写入端直接采用 DistilledNote.review_after，不会按周期重算。"""
+    text = README_PATH.read_text(encoding="utf-8")
+    assert "review_after` 是写入时的输入" in text
+    assert "compute_review_after" in text, "README 应指出周期函数尚未接入归档主链路"
+
+
+def test_expiry_policy_admits_missing_wiring() -> None:
+    text = re.sub(r"\s+", "", (ROOT / "references" / "expiry-policy.md").read_text(encoding="utf-8"))
+    assert "没有接入归档主链路" in text
+    assert "没有config级覆盖开关" in text

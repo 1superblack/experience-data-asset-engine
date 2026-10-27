@@ -2,7 +2,7 @@
 
 > 把 AI 对话与项目过程转化为可复用、可追溯、可治理的经验数据资产。
 
-把 AI 对话蒸馏成**可复用、可追溯、会自动老化管理**的 Obsidian 知识笔记，而不是把聊天原文
+把 AI 对话蒸馏成**可复用、可追溯、带状态与复核日期**的 Obsidian 知识笔记，而不是把聊天原文
 搬进知识库。
 
 一个对话结束后，真正有价值的通常只有几件事：当时要解决什么、查明了哪些事实、做了哪个决策
@@ -16,8 +16,9 @@
 ## 四条设计原则
 
 1. **不写原文**：主笔记只允许短证据引用与来源指针，禁止整段复制对话。
-2. **默认看不见过期内容**：检索端默认排除 `已过时`、`已被取代`，需要旧语境时显式
-   `--include-stale` 并打印跳过数量。
+2. **默认看不见过期内容**：`validate` / `status` 的计数与库内 `iter_notes()` 默认排除
+   `已过时`、`已被取代`，需要旧语境时显式 `--include-stale` 并打印跳过数量。
+   CLI 不提供搜索子命令，检索由你自己的 Obsidian 查询或 `iter_notes()` 完成。
 3. **不自动判死**：日期到期只把笔记放进 `recheck --due` 待复核列表，绝不自动改状态或删除。
 4. **不碰用户笔记**：只覆盖本工具创建且来源会话匹配的笔记；同名冲突写 `.pending-<hash8>.md`。
 
@@ -122,7 +123,7 @@ experience-data-asset-engine status --vault /path/to/vault
 dry-run 与真跑共用同一份计划（同一份覆盖后的 `noise_report`、同一个 `content_hash`），
 所以 dry-run 打印的「预计 path」和「预计 action」与真跑一致；dry-run 也**不会**发起模型请求。
 
-`staging/` 位于隐藏状态目录下，不属于知识库正文，Obsidian 不展示，也不计入检索。
+`staging/` 位于隐藏状态目录下，不属于知识库正文，Obsidian 不展示，也不参与状态统计。
 
 ## 笔记状态语义
 
@@ -136,6 +137,11 @@ dry-run 与真跑共用同一份计划（同一份覆盖后的 `noise_report`、
 内容时效与默认复核周期：`stable` 365 天、`evolving` 90 天、`volatile` 30 天、`progress`
 14 天。时效分级只看关键词命中，证据不足一律落 `evolving`，口径见
 [`references/expiry-policy.md`](references/expiry-policy.md)。
+
+**`review_after` 是写入时的输入，不是写入时自动算出来的。** 写入端直接采用
+`DistilledNote.review_after`（只校验 `YYYY-MM-DD` 格式）；周期表与
+`lifecycle.compute_review_after()` 是库内工具，目前没有接入归档主链路——需要按周期重算时
+由调用方自己算好再写进 `review_after`。这一版也没有 config 级的周期覆盖开关。
 
 **过期只过滤，不删除。** `review_after` 到期只是把笔记放进 `recheck --due` 的候选列表：
 工具不改状态、不移动文件、不删除任何 Markdown。状态变更只有两个来源——蒸馏时的初始值，
