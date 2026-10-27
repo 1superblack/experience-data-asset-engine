@@ -99,10 +99,29 @@
   且不得是「原因未知 / 不适用 / 暂无 / 略 / TODO / 待定」等占位话术；占位写法仍然整体判不合格。
   选 A 而不是强制给备选，是因为后者会逼模型虚构被否决方案，破坏知识真实性。
 
+### 新增（Gate 3：生命周期、安全写入与 vault 校验）
+
+- **生命周期**（`lifecycle.py`）：`compute_review_after` / `is_searchable` / `is_due` /
+  `classify_volatility`。复核周期 `stable 365 / evolving 90 / volatile 30 / progress 14` 天；
+  `有效`、`待复核` 默认可检索，`已过时`、`已被取代` 默认不可检索；
+  时效分级保守确定性，证据不足一律落 `evolving`。口径见 `references/expiry-policy.md`。
+- **安全写入**（`writer.py`）：`write_note` 返回 `created / updated / skipped / pending`，
+  绝不静默成功。同一 `source + session_id` 内容未变即 `skipped`，文件字节不动；
+  目标被手写笔记占用时只写 `<title>.pending.md`（冲突再加哈希后缀，12 个名额用尽即失败关闭）；
+  同目录临时文件 + `os.replace` 原子替换；`dry_run` 零写入（不建目录、不写 state/audit）。
+  写入边界再次 `redact_sensitive`，标题与项目名脱敏后仍须通过原有路径校验。
+- **vault 校验与过期过滤**（`validator.py`）：`validate_vault` 结构化上报缺字段、空字段、
+  字段类型错误、非法状态、非法内容时效、非法日期、`取代自`/`取代为` 断链/单向/自指、
+  frontmatter 无法解析；解析失败的文件绝不进入 `valid`。`iter_notes` 默认只给
+  `有效` + `待复核`（后者排序靠后），`include_stale=True` 恢复全部并如实报告跳过数。
+  `iter_due_notes` 只产出复核候选，不改状态、不删文件。
+- **frontmatter 往返保真**：逗号分隔的列表项按引号切分；纯数字串（如全数字哈希）渲染时加引号，
+  否则回读会被解析成 `int`，导致「内容没变」被误判成「内容变了」。
+
 ### 已知限制
 
-- **尚无写入 vault、检索过滤、复核与打包发布能力**：`archive` / `validate` / `status` /
-  `recheck` / `uninstall` 仍是占位，返回退出码 4。
+- **CLI 尚未接上**：`archive` / `validate` / `status` / `recheck` / `uninstall` 仍是占位，
+  返回退出码 4。`write_note` / `validate_vault` / `iter_notes` 目前只能通过 Python 调用。
 - 降噪与蒸馏目前只能**通过 Python 调用**（`filter_noise` / `prepare_distillation`），
   还没有接进 CLI 的 `archive` 流程。
 - 语义级冲突（「这个结论后来被推翻了」）不在降噪层判断，留给蒸馏阶段；
