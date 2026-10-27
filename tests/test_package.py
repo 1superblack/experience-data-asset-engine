@@ -123,6 +123,8 @@ def test_excludes_artifacts_and_tests(packaged: tuple[Path, str]) -> None:
         assert ".coverage" not in name, f"不该入包：{name}"
         assert not name.endswith(".pending.md"), f"不该入包：{name}"
         assert not name.endswith(".tmp"), f"不该入包：{name}"
+        assert ".egg-info/" not in name, f"不该入包：{name}"
+        assert ".dist-info/" not in name, f"不该入包：{name}"
 
 
 def test_payload_has_no_personal_paths_or_credentials(packaged: tuple[Path, str]) -> None:
@@ -180,6 +182,10 @@ def _make_synthetic_repo(base: Path) -> Path:
     (base / ".pytest_cache" / "CACHEDIR.TAG").write_text("tag\n", encoding="utf-8")
     (base / "src" / "pkg" / "__pycache__").mkdir()
     (base / "src" / "pkg" / "__pycache__" / "m.pyc").write_bytes(b"\x00\x02")
+    # pip install -e 的副产物：SOURCES.txt / PKG-INFO 里会写本机绝对路径
+    (base / "src" / "pkg.egg-info").mkdir()
+    (base / "src" / "pkg.egg-info" / "SOURCES.txt").write_text("SKILL.md\n", encoding="utf-8")
+    (base / "src" / "pkg.egg-info" / "PKG-INFO").write_text("Metadata-Version: 2.1\n", encoding="utf-8")
     (base / "config.local.json").write_text("{}\n", encoding="utf-8")
     (base / "draft.pending.md").write_text("# 待确认\n", encoding="utf-8")
     (base / "scripts" / "scratch.tmp").write_text("tmp\n", encoding="utf-8")

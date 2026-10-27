@@ -78,6 +78,13 @@ EXCLUDED_FILE_PATTERNS = (
     ".coverage",
     ".coverage.*",
 )
+# 目录名也需要 fnmatch：``pip install -e`` 会留下 ``*.egg-info``（内含 SOURCES.txt、
+# PKG-INFO 这类带本机绝对路径的构建元数据），名字随包名变化，写不进上面的固定集合。
+EXCLUDED_DIR_PATTERNS = (
+    "*.egg-info",
+    "*.dist-info",
+    "*.egg-link",
+)
 
 # --- 自检规则 ---------------------------------------------------------------
 
@@ -105,9 +112,11 @@ class PackageError(RuntimeError):
 
 
 def is_excluded(rel: PurePosixPath) -> bool:
-    """判断相对路径是否应被排除。"""
+    """判断相对路径是否应被排除（目录按名字或模式，文件按模式）。"""
     for part in rel.parts[:-1]:
         if part in EXCLUDED_DIR_NAMES:
+            return True
+        if any(fnmatch.fnmatch(part, pattern) for pattern in EXCLUDED_DIR_PATTERNS):
             return True
     if rel.parts[-1] in EXCLUDED_DIR_NAMES:
         return True

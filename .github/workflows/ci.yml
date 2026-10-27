@@ -43,10 +43,20 @@ jobs:
       # 覆盖率必须由 `coverage run` 产生数据文件后，`coverage report` 才有东西可读；
       # 所以这里是「一次运行同时出测试结果和覆盖率」，而不是先裸跑 pytest 再 report
       # （那样 report 只会报 No data to report）。
-      - name: 单元测试 + 覆盖率（分支，阈值 85%）
+      #
+      # 装了 codex extra 就要求 **0 skip**：跳过意味着 `.jsonl.zst` 读取路径根本没被执行，
+      # 覆盖率数字会虚高，那种"全绿"是假绿。所以本 job 把 skip 直接判失败。
+      - name: 单元测试 + 覆盖率（分支，阈值 85%，禁止 skip）
+        shell: bash
         run: |
-          python -m coverage run -m pytest -q --cache-clear
+          set -o pipefail
+          python -m coverage run -m pytest -q --cache-clear -rs 2>&1 | tee pytest-with-zstd.log
           python -m coverage report --fail-under=85
+          if grep -Eq '[0-9]+ skipped' pytest-with-zstd.log; then
+            echo "::error::dev+codex 环境下出现了 skip 用例，说明有路径没被真正执行。"
+            grep -E 'SKIPPED|skipped' pytest-with-zstd.log || true
+            exit 1
+          fi
 
       # 仓库当前没有 scripts/quick_validate.py。这里用「探测后执行，缺失则显式跳过」，
       # 不硬编码任何本机路径，也绝不在脚本缺失时打印假的通过信息。
