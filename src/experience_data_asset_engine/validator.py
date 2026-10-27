@@ -481,15 +481,15 @@ def _check_links(records: Sequence[NoteRecord], root: Path) -> list[Issue]:
     return issues
 
 
-def validate_vault(config: AppConfig, include_stale: bool = False) -> ValidationReport:
-    """校验 vault 内全部笔记（只读）。
+def validate_scan(
+    config: AppConfig, scan: NoteScan, include_stale: bool = False
+) -> ValidationReport:
+    """对**已经扫描好**的结果做校验，不再重新读盘。
 
-    校验**始终覆盖全部笔记**，包括 ``已过时`` / ``已被取代``——否则过期笔记里的坏字段
-    永远不会被发现。``include_stale`` 只影响报告里的 ``skipped`` 口径，
-    与 ``iter_notes`` 保持一致，避免「校验看全部」被误读成「检索不过滤」。
+    ``status`` 这类命令既要状态分布又要校验结论，给一次 ``scan_notes`` 就够：
+    重复调用 ``validate_vault`` 会把整个 vault 读第二遍。
     """
     root = _scan_root(config)
-    scan = scan_notes(config, include_stale=True)
 
     missing: list[Issue] = []
     invalid_status: list[Issue] = []
@@ -522,6 +522,18 @@ def validate_vault(config: AppConfig, include_stale: bool = False) -> Validation
         broken_links=tuple(broken),
         skipped=skipped,
     )
+
+
+def validate_vault(config: AppConfig, include_stale: bool = False) -> ValidationReport:
+    """校验 vault 内全部笔记（只读）。
+
+    校验**始终覆盖全部笔记**，包括 ``已过时`` / ``已被取代``——否则过期笔记里的坏字段
+    永远不会被发现。``include_stale`` 只影响报告里的 ``skipped`` 口径，
+    与 ``iter_notes`` 保持一致，避免「校验看全部」被误读成「检索不过滤」。
+
+    已有扫描结果时请用 ``validate_scan``，避免重复读盘。
+    """
+    return validate_scan(config, scan_notes(config, include_stale=True), include_stale)
 
 
 # --- 复核候选（只列不改） ----------------------------------------------------

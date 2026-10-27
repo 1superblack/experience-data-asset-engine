@@ -13,7 +13,6 @@ import argparse
 import shutil
 import sys
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass, replace
 from datetime import date
 from pathlib import Path
 
@@ -21,6 +20,7 @@ from . import __version__
 from .adapters.codex_jsonl import load_codex_session
 from .adapters.markdown import load_markdown_session
 from .adapters.normalized_json import load_normalized_json
+from .archive_flow import prepare_archive
 from .config import (
     CONFIG_FILENAME,
     DEFAULT_ARCHIVE_REL,
@@ -35,11 +35,16 @@ from .config import (
     resolve_safely,
     summarize_diagnostics,
 )
-from .distill import DistillationRequired, prepare_distillation, validate_distilled_note
+from .distill import validate_distilled_note
 from .errors import ConfigError, DistillerError, InputError
 from .models import STATUS_VALUES, DistilledNote, NoiseReport, NormalizedSession
-from .noise import filter_noise
-from .validator import iter_due_notes, scan_notes, set_note_status, validate_vault
+from .validator import (
+    iter_due_notes,
+    scan_notes,
+    set_note_status,
+    validate_scan,
+    validate_vault,
+)
 from .writer import write_note
 
 PROG = "experience-data-asset-engine"
@@ -235,85 +240,21 @@ def _cmd_doctor(args: argparse.Namespace) -> int:
     return EXIT_FAILURE if any(item.is_error for item in diagnostics) else EXIT_OK
 
 
-@dataclass(frozen=True, slots=True)
-class ArchivePlan:
-    """一次归档的准备工作结果（真跑与 dry-run 共用同一套准备逻辑）。
-
-    ``mode``：``distilled`` / ``provider`` / ``provider-planned`` /
-    ``staging`` / ``staging-planned``。
-    """
-
-    session: NormalizedSession
-    report: NoiseReport
-    mode: str
-    note: DistilledNote | None = None
-    staging_path: Path | None = None
-    schema_path: Path | None = None
-
-    @property
-    def staging_required(self) -> bool:
-        return self.mode in {"staging", "staging-planned"}
-
-    @property
-    def provider_planned(self) -> bool:
-        return self.mode == "provider-planned"
-
-    @property
-    def distilled(self) -> bool:
-        return self.mode == "distilled"
-
-
-def _prepare_archive(
-    args: argparse.Namespace, config: AppConfig, *, allow_side_effects: bool
-) -> ArchivePlan:
-    """解析输入 → 降噪 → 取笔记。**统计只在这里产生一次**。
-
-    - `--distilled`：先跑 ``filter_noise``，再用真实统计覆盖传入笔记自带的统计；
-    - 有模型：交给 ``prepare_distillation``，用它的统计（不回退、不重算）；
-    - 无模型：``allow_side_effects`` 为真时写 staging，否则只返回计划。
-    """
-    session = _load_session(Path(args.input).expanduser())
-    _cleaned, report = filter_noise(session)
-
-    if args.distilled:
-        supplied = _load_distilled(Path(args.distilled).expanduser())
-        # 覆盖后的 note 才允许交给 writer，content_hash 也基于这份真实统计
-        return ArchivePlan(
-            session=session,
-            report=report,
-            mode="distilled",
-            note=replace(supplied, noise_report=report),
-        )
-
-    if config.provider:
-        if not allow_side_effects:
-            return ArchivePlan(session=session, report=report, mode="provider-planned")
-        note = prepare_distillation(session, config)
-        return ArchivePlan(session=session, report=note.noise_report, mode="provider", note=note)
-
-    if not allow_side_effects:
-        return ArchivePlan(session=session, report=report, mode="staging-planned")
-
-    try:
-        prepare_distillation(session, config)
-    except DistillationRequired as exc:
-        return ArchivePlan(
-            session=session,
-            report=report,
-            mode="staging",
-            staging_path=exc.staging_path,
-            schema_path=exc.schema_path,
-        )
-    raise ConfigError("内部状态异常：无 provider 时不应直接返回笔记")
-
-
 def _cmd_archive(args: argparse.Namespace) -> int:
     if not args.input:
         _err("archive 需要 --input <path>（会话文件）")
         return EXIT_INPUT_REQUIRED
 
     config = _config(args)
-    plan = _prepare_archive(args, config, allow_side_effects=not args.dry_run)
+    session = _load_session(Path(args.input).expanduser())
+    distilled_note = _load_distilled(Path(args.distilled).expanduser()) if args.distilled else None
+
+    plan = prepare_archive(
+        session,
+        config,
+        distilled_note=distilled_note,
+        allow_side_effects=not args.dry_run,
+    )
 
     if args.dry_run:
         return _print_plan(config, plan, args)
@@ -323,7 +264,9 @@ def _cmd_archive(args: argparse.Namespace) -> int:
         _print_staging(config, plan)
         return EXIT_DISTILLATION_REQUIRED
 
-    assert plan.note is not None  # 非 staging 分支必然有笔记
+    if plan.note is None:  # 防御：非 staging 分支一定带笔记
+        raise ConfigError(f"内部状态异常：mode={plan.mode} 却没有蒸馏结果")
+
     result = write_note(plan.note, plan.session, config)
     _print_write_result(config, plan.note, result, distilled=plan.distilled)
     _print_vault_line(config, args.include_stale)
@@ -357,9 +300,10 @@ def _print_plan(config: AppConfig, plan: ArchivePlan, args: argparse.Namespace) 
     elif plan.provider_planned:
         print(f"预计 action: 调用模型 {config.provider} → 校验 → 写入")
         print("预计 path: 需蒸馏完成后才能确定")
+        print("provider: dry-run 不会发起任何模型请求")
     else:
         print("预计 action: 生成 staging 请求（需要蒸馏），不会写正式笔记")
-        print("预计退出码: 3")
+        print("预计退出码: 3（真跑需要蒸馏；dry-run 自身返回 0）")
     return EXIT_OK
 
 
@@ -399,7 +343,8 @@ def _cmd_status(args: argparse.Namespace) -> int:
         else:
             other += 1
 
-    report = validate_vault(config, include_stale=True)
+    # 复用同一次扫描：status 不再为了拿校验结论把 vault 读第二遍
+    report = validate_scan(config, scan, include_stale=True)
     for status in STATUS_VALUES:
         print(f"{status}: {counts[status]}")
     print(f"pending: {pending}")

@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 
 import pytest
@@ -42,7 +43,7 @@ def tree(root: Path) -> dict[str, bytes]:
     }
 
 
-def snapshot(root: Path) -> dict[str, object]:
+def snapshot_with_dirs(root: Path) -> dict[str, object]:
     """连目录一起记账：证明 dry-run 连一个空目录都没建。"""
     return {
         path.relative_to(root).as_posix(): ("dir" if path.is_dir() else path.read_bytes())
@@ -230,7 +231,7 @@ def test_distilled_skips_provider_without_network(vault: Path, capsys, monkeypat
 
 
 def test_dry_run_writes_nothing(vault: Path, capsys):
-    before = snapshot(vault)
+    before = snapshot_with_dirs(vault)
 
     code, out, err = archive_once(capsys, vault, "--dry-run")
 
@@ -238,20 +239,20 @@ def test_dry_run_writes_nothing(vault: Path, capsys):
     assert "dry-run" in out
     assert "预计 action: created" in out
     assert "预计 path: 04-对话存档/E2E工程/E2E 归档样本.md" in out
-    assert snapshot(vault) == before, "dry-run 不许新增任何文件或目录"
+    assert snapshot_with_dirs(vault) == before, "dry-run 不许新增任何文件或目录"
     assert not (vault / STATE_DIRNAME / "staging").exists()
     assert not (vault / ARCHIVE_REL / "E2E工程").exists()
 
 
 def test_dry_run_without_provider_does_not_create_staging(vault: Path, capsys):
-    before = snapshot(vault)
+    before = snapshot_with_dirs(vault)
     code, out, _ = run(
         capsys, "archive", "--input", str(MANUAL_MD), "--vault", str(vault), "--dry-run"
     )
 
     assert code == EXIT_OK
     assert "预计退出码: 3" in out
-    assert snapshot(vault) == before
+    assert snapshot_with_dirs(vault) == before
 
 
 def test_dry_run_shows_noise_summary(vault: Path, capsys):
@@ -420,9 +421,8 @@ def test_uninstall_yes_removes_only_state_dir(vault: Path, capsys):
 
 
 def test_uninstall_when_state_dir_missing_is_idempotent(vault: Path, capsys):
-    import shutil
-
     shutil.rmtree(vault / STATE_DIRNAME)
+
     code, out, _ = run(capsys, "uninstall", "--vault", str(vault), "--yes")
     assert code == EXIT_OK
     assert "无需卸载" in out
@@ -463,310 +463,154 @@ def test_dry_run_reports_real_redaction_count_for_noisy_input(vault: Path, capsy
 # --- 有 provider：完整链路走一遍本地假服务 -------------------------------------
 
 
-class FakeProvider:
-    """最小假模型服务：只监听 127.0.0.1 随机端口，记录请求体。"""
-
-    def __init__(self, payload: dict):
-        import threading
-        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-
-        self.requests: list[dict] = []
-        outer = self
-
-        class Handler(BaseHTTPRequestHandler):
-            protocol_version = "HTTP/1.1"
-
-            def do_POST(self) -> None:  # noqa: N802
-                length = int(self.headers.get("Content-Length") or 0)
-                raw = self.rfile.read(length)
-                outer.requests.append({"raw": raw, "headers": dict(self.headers)})
-                data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-                try:
-                    self.send_response(200)
-                    self.send_header("Content-Type", "application/json")
-                    self.send_header("Content-Length", str(len(data)))
-                    self.end_headers()
-                    self.wfile.write(data)
-                except (BrokenPipeError, ConnectionResetError):  # pragma: no cover
-                    pass
-
-            def log_message(self, *args) -> None:
-                return
-
-        self._server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-        self._thread = threading.Thread(
-            target=self._server.serve_forever, kwargs={"poll_interval": 0.02}, daemon=True
-        )
-
-    def __enter__(self) -> "FakeProvider":
-        self._thread.start()
-        self.base_url = f"http://127.0.0.1:{self._server.server_address[1]}/v1"
-        return self
-
-    def __exit__(self, *exc) -> None:
-        self._server.shutdown()
-        self._server.server_close()
+def archive_noisy(capsys, vault, *extra: str):
+    return run(
+        capsys,
+        "archive",
+        "--input",
+        str(NOISY_JSON),
+        "--distilled",
+        str(DISTILLED),
+        "--vault",
+        str(vault),
+        *extra,
+    )
 
 
-def provider_envelope(note: dict) -> dict:
-    return {
-        "choices": [
-            {
-                "finish_reason": "stop",
-                "message": {"role": "assistant", "content": json.dumps(note, ensure_ascii=False)},
-            }
-        ]
-    }
+def noise_lines(note_path: Path) -> list[str]:
+    body = parse_frontmatter(note_path.read_text(encoding="utf-8"))[1]
+    return [line for line in body.splitlines() if line.startswith(("过滤消息", "系统噪音", "工具噪音", "重复主题", "无效死路", "脱敏"))]
 
 
-def test_archive_with_provider_runs_full_pipeline(vault: Path, capsys, monkeypatch):
-    note = json.loads(DISTILLED.read_text(encoding="utf-8"))
-    with FakeProvider(provider_envelope(note)) as provider:
-        monkeypatch.setenv("EDAE_PROVIDER", "openai-compatible")
-        monkeypatch.setenv("EDAE_MODEL", "demo-model")
-        monkeypatch.setenv("EDAE_BASE_URL", provider.base_url)
-        monkeypatch.setenv("EDAE_API_KEY", "sk-test-only")
-
-        code, out, err = run(
-            capsys, "archive", "--input", str(NOISY_JSON), "--vault", str(vault)
-        )
+def test_distilled_uses_real_noise_stats_in_stdout(vault: Path, capsys):
+    code, out, err = archive_noisy(capsys, vault)
 
     assert code == EXIT_OK, err
-    assert "action: created" in out
-    assert "来源: --distilled" not in out, "有 provider 时不该走 --distilled 分支"
-    assert "noise: 保留 3/10" in out, "统计必须来自管道，而不是模型自报的 6/6"
-
-    raw = provider.requests[0]["raw"].decode("utf-8")
-    assert "abcdef1234567890" not in raw, "会话密钥不得进入提示词"
-    assert "[已脱敏]" in raw
-    assert provider.requests[0]["headers"]["Authorization"] == "Bearer sk-test-only"
+    assert "noise: 保留 3/10" in out, "必须显示真实降噪结果，而不是 distilled JSON 自带的 6/6"
+    assert "系统 3" in out and "工具 2" in out and "重复 1" in out
+    assert "死路 1" in out and "脱敏 1" in out
 
 
-def test_archive_with_provider_but_no_key_fails(vault: Path, capsys, monkeypatch):
-    monkeypatch.setenv("EDAE_PROVIDER", "openai-compatible")
-    monkeypatch.setenv("EDAE_MODEL", "demo-model")
-    monkeypatch.setenv("EDAE_BASE_URL", "http://127.0.0.1:1/v1")
-    monkeypatch.delenv("EDAE_API_KEY", raising=False)
+def test_distilled_writes_real_noise_stats_into_note_body(vault: Path, capsys):
+    assert archive_noisy(capsys, vault)[0] == EXIT_OK
+    note = archived_notes(vault)[0]
 
-    code, _, err = run(capsys, "archive", "--input", str(MANUAL_MD), "--vault", str(vault))
+    lines = noise_lines(note)
 
-    assert code == EXIT_FAILURE
-    assert "EDAE_API_KEY" in err
-    assert archived_notes(vault) == []
-
-
-def test_archive_with_provider_http_error_writes_nothing(vault: Path, capsys, monkeypatch):
-    class Broken(FakeProvider):
-        def __init__(self):
-            super().__init__({"choices": []})
-
-    with Broken() as provider:
-        monkeypatch.setenv("EDAE_PROVIDER", "openai-compatible")
-        monkeypatch.setenv("EDAE_MODEL", "demo-model")
-        monkeypatch.setenv("EDAE_BASE_URL", provider.base_url)
-        monkeypatch.setenv("EDAE_API_KEY", "sk-test-only")
-        code, _, err = run(capsys, "archive", "--input", str(MANUAL_MD), "--vault", str(vault))
-
-    assert code == EXIT_FAILURE
-    assert "choices" in err
-    assert archived_notes(vault) == []
+    assert "过滤消息 3/10" in lines
+    assert "系统噪音 3" in lines
+    assert "工具噪音 2" in lines
+    assert "重复主题 1" in lines
+    assert "无效死路 1" in lines
+    assert "脱敏 1" in lines
 
 
-# --- --include-stale ---------------------------------------------------------
+def test_distilled_supplied_stats_are_discarded(vault: Path, capsys):
+    supplied = json.loads(DISTILLED.read_text(encoding="utf-8"))
+    assert supplied["noise_report"]["input_messages"] == 6, "fixture 自身声称 6/6"
+
+    assert archive_noisy(capsys, vault)[0] == EXIT_OK
+    text = archived_notes(vault)[0].read_text(encoding="utf-8")
+
+    assert "6/6" not in text, "传入 JSON 自带的统计不得保留"
+    assert "过滤消息 3/10" in text
 
 
-def test_include_stale_changes_vault_summary(vault: Path, capsys):
+def test_dry_run_and_real_write_share_stats_and_hash(vault: Path, capsys):
+    code, dry_out, err = archive_noisy(capsys, vault, "--dry-run")
+    assert code == EXIT_OK, err
+    dry_hash = dry_out.split("content_hash: ")[1].splitlines()[0].strip()
+    assert "noise: 保留 3/10" in dry_out
+    assert not archived_notes(vault), "dry-run 不得写文件"
+
+    code, real_out, err = archive_noisy(capsys, vault)
+    assert code == EXIT_OK, err
+    real_hash = real_out.split("content_hash: ")[1].splitlines()[0].strip()
+
+    assert dry_hash == real_hash, "dry-run 与实际写入必须同一口径（同一 content_hash）"
+    assert "noise: 保留 3/10" in real_out
+    assert "过滤消息 3/10" in archived_notes(vault)[0].read_text(encoding="utf-8")
+
+
+# --- 只读命令不写盘 / status 只扫一次 (Gate 4 复审 C) -------------------------
+
+
+def test_validate_is_read_only(vault: Path, capsys):
     assert archive_once(capsys, vault)[0] == EXIT_OK
-    note = archived_notes(vault)[0]
-    assert (
-        run(capsys, "recheck", "--note", str(note), "--status", "已过时", "--vault", str(vault))[0]
-        == EXIT_OK
-    )
+    before = snapshot_with_dirs(vault)
 
-    _, out, _ = archive_once(capsys, vault)
-    assert "检索可见 0 篇（不含过期）" in out
+    code, out, _ = run(capsys, "validate", "--vault", str(vault))
 
-    _, out_stale, _ = archive_once(capsys, vault, "--include-stale")
-    assert "检索可见 1 篇（含过期）" in out_stale
+    assert code == EXIT_OK
+    assert "valid: 1" in out
+    assert snapshot_with_dirs(vault) == before, "validate 必须零写入"
 
 
-# --- uninstall 的安全性 -------------------------------------------------------
+def test_status_is_read_only(vault: Path, capsys):
+    assert archive_once(capsys, vault)[0] == EXIT_OK
+    before = snapshot_with_dirs(vault)
+
+    code, out, _ = run(capsys, "status", "--vault", str(vault))
+
+    assert code == EXIT_OK
+    assert "有效: 1" in out
+    assert snapshot_with_dirs(vault) == before, "status 必须零写入"
 
 
-def test_uninstall_refuses_symlinked_state_dir(sample_vault: Path, tmp_path: Path, capsys):
-    run(capsys, "init", "--vault", str(sample_vault))
-    state_dir = sample_vault / STATE_DIRNAME
-    import shutil
+def test_status_scans_vault_once(vault: Path, capsys, monkeypatch):
+    """status 既要状态分布又要校验结论，只能读一次盘。"""
+    from experience_data_asset_engine import cli as cli_module
+    from experience_data_asset_engine.validator import scan_notes as real_scan
 
-    shutil.rmtree(state_dir)
-    outside = tmp_path / "outside-state"
-    outside.mkdir()
-    try:
-        state_dir.symlink_to(outside, target_is_directory=True)
-    except (OSError, NotImplementedError):  # pragma: no cover - 依赖宿主权限
-        pytest.skip("当前环境不支持创建目录符号链接")
+    calls: list[object] = []
+    captured: dict[str, object] = {}
 
-    code, _, err = run(capsys, "uninstall", "--vault", str(sample_vault), "--yes")
+    def counting_scan(config, include_stale=False):
+        result = real_scan(config, include_stale=include_stale)
+        calls.append(result)
+        return result
 
-    assert code == EXIT_FAILURE
-    assert "符号链接" in err
-    assert outside.is_dir()
+    def spy_validate_scan(config, scan, include_stale=False):
+        captured["scan"] = scan
+        from experience_data_asset_engine.validator import validate_scan as real_validate
 
+        return real_validate(config, scan, include_stale=include_stale)
 
-def test_uninstall_refuses_state_path_that_is_a_file(sample_vault: Path, capsys):
-    run(capsys, "init", "--vault", str(sample_vault))
-    state_dir = sample_vault / STATE_DIRNAME
-    import shutil
+    monkeypatch.setattr(cli_module, "scan_notes", counting_scan)
+    monkeypatch.setattr(cli_module, "validate_scan", spy_validate_scan)
 
-    shutil.rmtree(state_dir)
-    state_dir.write_text("not a dir", encoding="utf-8")
+    assert run(capsys, "status", "--vault", str(vault))[0] == EXIT_OK
 
-    code, _, err = run(capsys, "uninstall", "--vault", str(sample_vault), "--yes")
-
-    assert code == EXIT_FAILURE
-    assert "不是目录" in err
-    assert state_dir.read_text(encoding="utf-8") == "not a dir"
+    assert len(calls) == 1, f"status 扫描了 {len(calls)} 次，应只扫 1 次"
+    assert captured["scan"] is calls[0], "校验必须复用同一份扫描结果"
 
 
-# --- --distilled 必须用真实降噪统计（Gate 4 复审） -----------------------------
+# --- pending 冲突：手写笔记不被覆盖，候选带真实统计 ---------------------------
 
 
-def archive_noisy(capsys, vault, *extra: str):
-    return run(
-        capsys,
-        "archive",
-        "--input",
-        str(NOISY_JSON),
-        "--distilled",
-        str(DISTILLED),
-        "--vault",
-        str(vault),
-        *extra,
-    )
+def test_conflict_writes_pending_with_real_stats(vault: Path, capsys):
+    target = vault / ARCHIVE_REL / "E2E工程" / "E2E 归档样本.md"
+    target.parent.mkdir(parents=True)
+    handwritten = "---\n状态: 有效\n---\n\n# 我自己写的\n\n别覆盖我。\n"
+    target.write_text(handwritten, encoding="utf-8")
 
-
-def noise_lines(note_path: Path) -> list[str]:
-    body = parse_frontmatter(note_path.read_text(encoding="utf-8"))[1]
-    return [line for line in body.splitlines() if line.startswith(("过滤消息", "系统噪音", "工具噪音", "重复主题", "无效死路", "脱敏"))]
-
-
-def test_distilled_uses_real_noise_stats_in_stdout(vault: Path, capsys):
     code, out, err = archive_noisy(capsys, vault)
 
     assert code == EXIT_OK, err
-    assert "noise: 保留 3/10" in out, "必须显示真实降噪结果，而不是 distilled JSON 自带的 6/6"
-    assert "系统 3" in out and "工具 2" in out and "重复 1" in out
-    assert "死路 1" in out and "脱敏 1" in out
+    assert "action: pending" in out
+    assert target.read_text(encoding="utf-8") == handwritten, "手写笔记不得被改动"
+
+    pendings = sorted(target.parent.glob("*.pending-*.md"))
+    assert len(pendings) == 1
+    pending_text = pendings[0].read_text(encoding="utf-8")
+    assert "过滤消息 3/10" in pending_text
+    assert "脱敏 1" in pending_text
+    assert "6/6" not in pending_text
 
 
-def test_distilled_writes_real_noise_stats_into_note_body(vault: Path, capsys):
-    assert archive_noisy(capsys, vault)[0] == EXIT_OK
-    note = archived_notes(vault)[0]
-
-    lines = noise_lines(note)
-
-    assert "过滤消息 3/10" in lines
-    assert "系统噪音 3" in lines
-    assert "工具噪音 2" in lines
-    assert "重复主题 1" in lines
-    assert "无效死路 1" in lines
-    assert "脱敏 1" in lines
+# --- 只读命令不写盘 / status 只扫一次 (Gate 4 复审 C) -------------------------
 
 
-def test_distilled_supplied_stats_are_discarded(vault: Path, capsys):
-    supplied = json.loads(DISTILLED.read_text(encoding="utf-8"))
-    assert supplied["noise_report"]["input_messages"] == 6, "fixture 自身声称 6/6"
-
-    assert archive_noisy(capsys, vault)[0] == EXIT_OK
-    text = archived_notes(vault)[0].read_text(encoding="utf-8")
-
-    assert "6/6" not in text, "传入 JSON 自带的统计不得保留"
-    assert "过滤消息 3/10" in text
+# --- pending 冲突：手写笔记不被覆盖，候选带真实统计 ---------------------------
 
 
-def test_dry_run_and_real_write_share_stats_and_hash(vault: Path, capsys):
-    code, dry_out, err = archive_noisy(capsys, vault, "--dry-run")
-    assert code == EXIT_OK, err
-    dry_hash = dry_out.split("content_hash: ")[1].splitlines()[0].strip()
-    assert "noise: 保留 3/10" in dry_out
-    assert not archived_notes(vault), "dry-run 不得写文件"
-
-    code, real_out, err = archive_noisy(capsys, vault)
-    assert code == EXIT_OK, err
-    real_hash = real_out.split("content_hash: ")[1].splitlines()[0].strip()
-
-    assert dry_hash == real_hash, "dry-run 与实际写入必须同一口径（同一 content_hash）"
-    assert "noise: 保留 3/10" in real_out
-    assert "过滤消息 3/10" in archived_notes(vault)[0].read_text(encoding="utf-8")
-
-
-# --- --distilled 必须用真实降噪统计（Gate 4 复审） -----------------------------
-
-
-def archive_noisy(capsys, vault, *extra: str):
-    return run(
-        capsys,
-        "archive",
-        "--input",
-        str(NOISY_JSON),
-        "--distilled",
-        str(DISTILLED),
-        "--vault",
-        str(vault),
-        *extra,
-    )
-
-
-def noise_lines(note_path: Path) -> list[str]:
-    body = parse_frontmatter(note_path.read_text(encoding="utf-8"))[1]
-    return [line for line in body.splitlines() if line.startswith(("过滤消息", "系统噪音", "工具噪音", "重复主题", "无效死路", "脱敏"))]
-
-
-def test_distilled_uses_real_noise_stats_in_stdout(vault: Path, capsys):
-    code, out, err = archive_noisy(capsys, vault)
-
-    assert code == EXIT_OK, err
-    assert "noise: 保留 3/10" in out, "必须显示真实降噪结果，而不是 distilled JSON 自带的 6/6"
-    assert "系统 3" in out and "工具 2" in out and "重复 1" in out
-    assert "死路 1" in out and "脱敏 1" in out
-
-
-def test_distilled_writes_real_noise_stats_into_note_body(vault: Path, capsys):
-    assert archive_noisy(capsys, vault)[0] == EXIT_OK
-    note = archived_notes(vault)[0]
-
-    lines = noise_lines(note)
-
-    assert "过滤消息 3/10" in lines
-    assert "系统噪音 3" in lines
-    assert "工具噪音 2" in lines
-    assert "重复主题 1" in lines
-    assert "无效死路 1" in lines
-    assert "脱敏 1" in lines
-
-
-def test_distilled_supplied_stats_are_discarded(vault: Path, capsys):
-    supplied = json.loads(DISTILLED.read_text(encoding="utf-8"))
-    assert supplied["noise_report"]["input_messages"] == 6, "fixture 自身声称 6/6"
-
-    assert archive_noisy(capsys, vault)[0] == EXIT_OK
-    text = archived_notes(vault)[0].read_text(encoding="utf-8")
-
-    assert "6/6" not in text, "传入 JSON 自带的统计不得保留"
-    assert "过滤消息 3/10" in text
-
-
-def test_dry_run_and_real_write_share_stats_and_hash(vault: Path, capsys):
-    code, dry_out, err = archive_noisy(capsys, vault, "--dry-run")
-    assert code == EXIT_OK, err
-    dry_hash = dry_out.split("content_hash: ")[1].splitlines()[0].strip()
-    assert "noise: 保留 3/10" in dry_out
-    assert not archived_notes(vault), "dry-run 不得写文件"
-
-    code, real_out, err = archive_noisy(capsys, vault)
-    assert code == EXIT_OK, err
-    real_hash = real_out.split("content_hash: ")[1].splitlines()[0].strip()
-
-    assert dry_hash == real_hash, "dry-run 与实际写入必须同一口径（同一 content_hash）"
-    assert "noise: 保留 3/10" in real_out
-    assert "过滤消息 3/10" in archived_notes(vault)[0].read_text(encoding="utf-8")

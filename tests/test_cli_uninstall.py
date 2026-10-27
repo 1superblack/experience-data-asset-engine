@@ -75,7 +75,7 @@ def test_uninstall_refuses_state_dir_without_config(sample_vault: Path, capsys):
     code, _, err = run(capsys, "uninstall", "--vault", str(sample_vault), "--yes")
 
     assert code == EXIT_FAILURE
-    assert "未初始化" in err or "config.json" in err
+    assert "未初始化" in err
     assert snapshot(sample_vault) == before
     assert (sample_vault / STATE_DIRNAME).is_dir()
 
@@ -89,7 +89,7 @@ def test_uninstall_refuses_corrupted_config(sample_vault: Path, capsys):
     code, _, err = run(capsys, "uninstall", "--vault", str(sample_vault), "--yes")
 
     assert code == EXIT_FAILURE
-    assert "JSON" in err or "文件" in err
+    assert "JSON 解析失败" in err
     assert snapshot(sample_vault) == before
 
 
@@ -105,7 +105,7 @@ def test_uninstall_refuses_config_outside_vault(sample_vault: Path, tmp_path: Pa
     code, _, err = run(capsys, "uninstall", "--vault", str(sample_vault), "--yes")
 
     assert code == EXIT_FAILURE
-    assert "vault 内" in err or "outside vault" in err
+    assert "vault 内" in err
     assert snapshot(sample_vault) == before
 
 

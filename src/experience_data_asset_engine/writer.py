@@ -34,7 +34,6 @@ from typing import Any, Final
 
 from .config import AppConfig, ensure_inside_vault, read_json_file, write_json_atomic
 from .errors import ConfigError, SchemaError
-from .lifecycle import compute_review_after
 from .models import DistilledNote, NoiseReport, NormalizedSession
 from .noise import redact_sensitive
 
@@ -820,6 +819,3 @@ def _record_success(
     )
 
 
-def review_date_for(note: DistilledNote, base: date) -> date:
-    """按笔记的时效等级算出复核日期（供写入端与 CLI 复用）。"""
-    return compute_review_after(base, note.content_volatility)

@@ -201,3 +201,21 @@ def test_uninstall_refuses_state_path_that_is_a_file(sample_vault: Path, capsys)
     assert code == EXIT_FAILURE
     assert "不是目录" in err
     assert state_dir.read_text(encoding="utf-8") == "not a dir"
+
+
+def test_dry_run_with_provider_makes_no_request(vault: Path, capsys, monkeypatch):
+    """dry-run 只演算：配了模型也不许发请求、不许写 staging 或笔记。"""
+    note = json.loads(DISTILLED.read_text(encoding="utf-8"))
+    with FakeProvider(envelope(note)) as provider:
+        use_provider(monkeypatch, provider.base_url)
+        code, out, err = run(
+            capsys, "archive", "--input", str(NOISY_JSON), "--dry-run", "--vault", str(vault)
+        )
+
+    assert code == EXIT_OK, err
+    assert "provider: dry-run 不会发起任何模型请求" in out
+    assert provider.requests == [], "dry-run 不得发起模型请求"
+    assert archived_notes(vault) == []
+    assert not (vault / STATE_DIRNAME / "staging").exists()
+
+
