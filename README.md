@@ -203,13 +203,19 @@ note = prepare_distillation(session, load_config())    # 无模型时抛 Distill
 - **写入**：原子写、内容哈希幂等、冲突落 pending 候选、单会话只允许一篇正式笔记。
 - **只读命令**：`validate`、`status`、`recheck --due`。
 - **打包**：`scripts/build_skill_zip.py` 可离线打出可分发的 zip（根目录含 `SKILL.md`），
-  构建不联网、不读取任何 vault。
+  构建不联网、不读取任何 vault：
+
+  ```bash
+  python scripts/build_skill_zip.py --output dist/experience-data-asset-engine.zip
+  python scripts/build_skill_zip.py --output dist/x.zip --list   # 额外打印包内清单
+  ```
 - **未实现**：上架 SkillHub、发 GitHub Release。仓库内没有发布产物，
   也不存在「上架后一键安装」路径——请按上面的「安装」一节从源码或 zip 安装。
 
 ## 隐私
 
-安全边界与漏洞报告方式见 [SECURITY.md](SECURITY.md)：本工具不解密客户端数据库、不读取真实凭据、不自动删除或覆盖用户笔记，发布前需人工审查与用户批准。
+安全边界与漏洞报告方式见 [SECURITY.md](SECURITY.md)：本工具不解密客户端数据库、
+不读取真实凭据、不自动删除或覆盖用户笔记，发布前需人工审查与用户批准。
 
 - 只读输入文件，不修改、不移动原始会话。
 - 配置里只存 vault 内相对路径；API Key 只从环境变量 `EDAE_API_KEY` 读取，不落盘、不进日志。

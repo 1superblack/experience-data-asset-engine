@@ -293,3 +293,11 @@ def test_readme_links_security_policy() -> None:
         pytest.skip("本仓库未提供 SECURITY.md")
     text = README_PATH.read_text(encoding="utf-8")
     assert "SECURITY.md" in text
+
+
+def test_documented_packaging_command_matches_script() -> None:
+    """README 写的打包命令必须与脚本真实参数一致。"""
+    script = (README_PATH.parent / "scripts" / "build_skill_zip.py").read_text(encoding="utf-8")
+    assert "--output" in script
+    readme = README_PATH.read_text(encoding="utf-8")
+    assert "scripts/build_skill_zip.py --output" in readme
