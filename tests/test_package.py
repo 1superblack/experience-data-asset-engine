@@ -191,6 +191,54 @@ def test_cli_prints_path_sha256_and_size(packaged: tuple[Path, str]) -> None:
     assert "files: " in stdout
 
 
+def _make_line_ending_repo(base: Path, newline: bytes) -> Path:
+    """造一个「内容相同、只有行尾不同」的最小仓库（用 write_bytes 精确控制字节）。"""
+    for name in ("src/pkg", "scripts", "references", "agents"):
+        (base / name).mkdir(parents=True)
+    body = newline.join([b"# demo", b"", b"alpha", b"beta", b""])
+    for name in ("SKILL.md", "LICENSE", "README.md", "references/doc.md"):
+        (base / name).write_bytes(body)
+    (base / "src" / "pkg" / "__init__.py").write_bytes(body)
+    (base / "scripts" / "cli.py").write_bytes(body)
+    (base / "agents" / "openai.yaml").write_bytes(body)
+    # 二进制里的 CRLF 是数据，不是换行——绝不能被归一
+    (base / "agents" / "blob.bin").write_bytes(b"BIN\r\nDATA\x00\xff")
+    return base
+
+
+def test_line_endings_do_not_change_archive_hash(tmp_path: Path) -> None:
+    """同一个 commit、同一台机器，只要检出被改写过行尾（CRLF/LF），不能变成两个包。
+
+    这是真实踩过的坑：主工作区是 CRLF 检出，worktree 是 LF，内容一字未改，
+    打出来的 zip 却是两个 SHA256——那是「检出差异」冒充「内容差异」。
+    """
+    lf_repo = _make_line_ending_repo(tmp_path / "lf", b"\n")
+    crlf_repo = _make_line_ending_repo(tmp_path / "crlf", b"\r\n")
+    lf_zip = tmp_path / "lf.zip"
+    crlf_zip = tmp_path / "crlf.zip"
+
+    for repo, out in ((lf_repo, lf_zip), (crlf_repo, crlf_zip)):
+        proc = subprocess.run(
+            [sys.executable, str(SCRIPT), "--output", str(out), "--repo", str(repo)],
+            cwd=str(tmp_path),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        assert proc.returncode == 0, f"stdout={proc.stdout}\nstderr={proc.stderr}"
+
+    assert crlf_repo.joinpath("README.md").read_bytes().count(b"\r\n") > 0, "夹具没造出 CRLF"
+    digest_lf = hashlib.sha256(lf_zip.read_bytes()).hexdigest()
+    digest_crlf = hashlib.sha256(crlf_zip.read_bytes()).hexdigest()
+    assert digest_lf == digest_crlf, "行尾差异泄漏到产物：文本条目入包前必须归一到 LF"
+
+    with zipfile.ZipFile(crlf_zip) as archive:
+        assert archive.read("README.md").count(b"\r\n") == 0
+        assert archive.read("agents/blob.bin") == b"BIN\r\nDATA\x00\xff", "二进制被误归一"
+
+
 def _make_synthetic_repo(base: Path) -> Path:
     """造一个带各种污染物的最小仓库，用来单独验证排除规则与自检。"""
     (base / "src" / "pkg").mkdir(parents=True)

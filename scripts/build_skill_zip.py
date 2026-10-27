@@ -5,12 +5,16 @@
 
 1. **根目录直挂 ``SKILL.md``**：解压后 ``SKILL.md`` 就在第一层，不套一层
    ``repo-name/`` 子目录——SkillHub 只认根目录的 ``SKILL.md``。
-2. **可复现**：同一份源码在**同一台机器、同一 zlib 实现**下两次打包，zip 的 SHA256 必须一致。
-   所以条目按路径排序、``ZipInfo.date_time`` 固定为 1980-01-01、``external_attr`` 固定为
-   0o644、压缩级别固定。
-   注意边界：deflate 的输出字节由底层 zlib/zlib-ng 版本决定，跨平台或跨压缩库版本
-   不保证同哈希——因此这个 SHA256 只能当「本机同源校验值」，不要写进发布文档当
-   跨机承诺（跨机一致性应由包内文件清单/内容哈希来保证，而不是 zip 字节）。
+2. **可复现**：对**同一份文件内容**（CF 行尾差异不算内容差异，见下）在**同一台机器、
+   同一 zlib 实现**下两次打包，zip 的 SHA256 必须一致。所以条目按路径排序、
+   ``ZipInfo.date_time`` 固定为 1980-01-01、``external_attr`` 固定为 0o644、压缩级别固定。
+   注意两道边界：
+   - **行尾归一**：文本条目入包前统一把 ``\r\n`` 折成 ``\n``。否则同一个 commit、同一台机器，
+     只要某个 worktree 被工具改写过行尾（``core.autocrlf`` 或整树复制），打出来的包就不同哈希——
+     那是「检出差异」冒充「内容差异」，会让人误以为源码变了。归一只针对文本后缀，二进制原样入包。
+   - **zlib**：deflate 的输出字节由底层 zlib/zlib-ng 版本决定，跨平台或跨压缩库版本
+     不保证同哈希。因此这个 SHA256 只能当「同一检出下的本机校验值」，不要写进发布文档当
+     跨机承诺；对外发布的校验值应由 CI（固定 ubuntu + LF 检出）产出。
 3. **出厂前自检**：打包后回读 zip，只要检出被排除的路径、疑似凭据或个人绝对路径，
    就以非零码退出——宁可打不出包，也不发一个带隐私的包。
 
@@ -109,6 +113,11 @@ FIXED_DATE_TIME = (1980, 1, 1, 0, 0, 0)
 FIXED_FILE_MODE = 0o644
 COMPRESS_LEVEL = 9
 
+#: 入包前需要把 CRLF 折成 LF 的文本后缀。二进制（如图片、``.zst``）不在其中，原样入包。
+TEXT_SUFFIXES = frozenset(
+    {".md", ".py", ".yaml", ".yml", ".toml", ".json", ".txt", ".cfg", ".ini", ".sh", ".rst"}
+)
+
 
 class PackageError(RuntimeError):
     """打包自检失败（不能发布）。"""
@@ -159,14 +168,29 @@ def collect_entries(repo_root: Path) -> list[PurePosixPath]:
     return entries
 
 
+def normalize_entry(rel: PurePosixPath, data: bytes) -> bytes:
+    """把文本条目的 CRLF 折成 LF，让产物与「检出时的行尾」解耦。
+
+    为什么必须做：同一个 commit，在 ``core.autocrlf=true`` 或整树复制过的 worktree 里被检出
+    就是 CRLF，内容一个字没改，但 ``read_bytes()`` 读到的字节不同——打出来的包 SHA256 也就
+    不同。那是检出差异冒充内容差异，会让人误判「源码变了」。
+    无后缀文件（如 ``LICENSE``）按「不含 NUL 即文本」处理，避免漏掉根级纯文本。
+    """
+    suffix = rel.suffix.lower()
+    is_text = suffix in TEXT_SUFFIXES or (not suffix and b"\x00" not in data)
+    if not is_text:
+        return data
+    return data.replace(b"\r\n", b"\n")
+
+
 def write_zip(repo_root: Path, output: Path, entries: list[PurePosixPath]) -> None:
-    """按固定元信息写 zip，保证同源同哈希。"""
+    """按固定元信息写 zip，保证同源同哈希（文本行尾已归一）。"""
     output.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(
         output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=COMPRESS_LEVEL
     ) as archive:
         for rel in entries:
-            data = (repo_root / rel).read_bytes()
+            data = normalize_entry(rel, (repo_root / rel).read_bytes())
             info = zipfile.ZipInfo(rel.as_posix(), date_time=FIXED_DATE_TIME)
             info.compress_type = zipfile.ZIP_DEFLATED
             info.create_system = 3  # 固定为 Unix，避免打包机系统差异影响字节
