@@ -110,10 +110,11 @@ def test_skill_has_exactly_five_top_level_sections() -> None:
 
 
 def test_skill_keeps_capability_boundary() -> None:
-    """打包发布没实现这件事必须写在 SKILL.md 里，不能被精简掉。"""
+    """能力边界要写准：上架没实现必须写明，离线打包已实现也不许漏写。"""
     text = SKILL_PATH.read_text(encoding="utf-8")
-    assert "打包发布" in text
-    assert "未实现" in text
+    assert "上架 / 发布流水线" in text, "上架能力这一行不能被精简掉"
+    assert "**未实现**" in text, "未实现的上架能力必须显式标注"
+    assert "scripts/build_skill_zip.py" in text, "已实现的离线打包能力不能从能力表消失"
     # 不能出现「已发布 / 已上架 / 生产可用」这类与实际不符的措辞
     for word in ("已发布到 SkillHub", "已上架", "可直接生产使用"):
         assert word not in text, f"SKILL.md 出现了未实现的宣称: {word}"
@@ -187,7 +188,8 @@ def test_readme_does_not_claim_unimplemented_write_path() -> None:
     for stale in ("没有写入能力", "仍是退出码 4", "未实现 |"):
         assert stale not in text, f"README.md 残留过期陈述: {stale}"
     assert "SkillHub" in text
-    assert "未实现" in text, "README.md 应说明打包发布仍未实现"
+    assert "上架" in text and "未实现" in text, "README.md 应说明上架/发版仍未实现"
+    assert "build_skill_zip.py" in text, "README.md 应说明离线打包已可用"
 
 
 def test_readme_marks_fixtures_as_synthetic() -> None:
@@ -247,6 +249,7 @@ FORBIDDEN_CLAIMS = {
     "不存在的检索子命令": r"检索笔记",
     "不存在的校验脚本": r"quick_validate",
     "未发生的 CI 通过": r"CI\s*(已通过|校验通过)|GitHub Actions 已(通过|跑过)",
+    "把已实现的打包写成未实现": r"SkillHub 打包发布|打包发布未做|打包发布能力属于",
 }
 
 
@@ -281,3 +284,12 @@ def test_readme_documents_uninstalled_usage() -> None:
     assert "python scripts/cli.py" in text
     assert "分发压缩包" in text
     assert "不需要也不要执行 pip 安装" in text
+
+
+def test_readme_links_security_policy() -> None:
+    """SECURITY.md 存在时，README 必须给出入口，否则用户找不到安全边界。"""
+    security = README_PATH.parent / "SECURITY.md"
+    if not security.is_file():
+        pytest.skip("本仓库未提供 SECURITY.md")
+    text = README_PATH.read_text(encoding="utf-8")
+    assert "SECURITY.md" in text

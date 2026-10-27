@@ -202,10 +202,14 @@ note = prepare_distillation(session, load_config())    # 无模型时抛 Distill
 - **处理**：四层降噪与脱敏、模型无关蒸馏、无模型时只产出 staging。
 - **写入**：原子写、内容哈希幂等、冲突落 pending 候选、单会话只允许一篇正式笔记。
 - **只读命令**：`validate`、`status`、`recheck --due`。
-- **未实现**：SkillHub 打包发布、GitHub 发布流水线。仓库内没有发布产物，
-  也不存在「上架 SkillHub 后的一键安装」路径——请按上面的「安装」一节从源码安装。
+- **打包**：`scripts/build_skill_zip.py` 可离线打出可分发的 zip（根目录含 `SKILL.md`），
+  构建不联网、不读取任何 vault。
+- **未实现**：上架 SkillHub、发 GitHub Release。仓库内没有发布产物，
+  也不存在「上架后一键安装」路径——请按上面的「安装」一节从源码或 zip 安装。
 
 ## 隐私
+
+安全边界与漏洞报告方式见 [SECURITY.md](SECURITY.md)：本工具不解密客户端数据库、不读取真实凭据、不自动删除或覆盖用户笔记，发布前需人工审查与用户批准。
 
 - 只读输入文件，不修改、不移动原始会话。
 - 配置里只存 vault 内相对路径；API Key 只从环境变量 `EDAE_API_KEY` 读取，不落盘、不进日志。

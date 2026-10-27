@@ -20,7 +20,7 @@ from datetime import date, timedelta
 from .errors import InputError
 from .models import STATUS_VALUES, VOLATILITY_VALUES
 
-#: 各时效等级的复核周期（天）。可在 config 里按项目覆盖。
+#: 各时效等级的复核周期（天）。**没有** config 级覆盖开关：要改周期请改这里的常量。
 DEFAULT_REVIEW_DAYS: Mapping[str, int] = {
     "stable": 365,
     "evolving": 90,

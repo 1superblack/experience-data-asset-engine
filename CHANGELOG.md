@@ -5,8 +5,22 @@
 ## [0.1.0] - 2026-10-27
 
 首个可用版本：「导入 → 降噪 → 蒸馏 → 写入 → 校验 → 复核 → 卸载」主链路全部打通，
-全部通过 CLI 使用。**不含打包发布能力**（SkillHub 打包、GitHub 发布流水线未实现，
-仓库内没有发布产物）。
+全部通过 CLI 使用。**可离线打包**为可分发的 zip（根目录含 `SKILL.md`）；
+**不含上架能力**（SkillHub 上架、GitHub Release 流水线未实现，仓库内没有发布产物）。
+
+### 打包、CI 与发布准备（Gate 5）
+
+- **离线打包**：`scripts/build_skill_zip.py` 打出根目录含 `SKILL.md` 的 zip，
+  固定时间戳保证可复现（同源码两次构建 SHA256 一致）；排除 `.git`、`__pycache__`、
+  `.pytest_cache`、`.coverage*`、`tests/`、`.experience-data-asset-engine/`、`dist/` 与
+  `*.egg-info`；构建后自检疑似凭据并非零退出。
+- **CI 工作流**：`.github/workflows/ci.yml` 覆盖 Python 3.11/3.12 与「不装 zstandard」两种环境，
+  跑 `pytest -q --cache-clear`、`coverage report --fail-under=85`、`quick_validate.py`。
+  **本仓库没有 remote，工作流只创建、未实际执行。**
+- **SECURITY.md**：说明不自动解密客户端数据库、不读取真实凭据、不自动删除或覆盖用户笔记、
+  过期只过滤不删除、发布前需人工审查与用户批准。
+- **能力口径统一**：文档里「打包」与「上架」分开写——zip 打包可用，上架/发版未实现；
+  反向规则进了 `tests/test_skill_metadata.py::FORBIDDEN_CLAIMS`，防止再把已实现写成未实现。
 
 ### 文档与元数据（Gate 5）
 
@@ -205,7 +219,8 @@
 
 ### 已知限制
 
-- **打包发布未做**：SkillHub 打包、GitHub 发布流水线属于 Gate 5，当前没有发布产物。
+- **上架/发版未做**：`scripts/build_skill_zip.py` 能离线打 zip，但 SkillHub 上架与
+  GitHub Release 流水线没有实现，仓库内没有发布产物。
 - **Markdown 导入只支持一种版式**：`# 标题` + `## 角色`。自由格式的导出文本需要先整理成
   这个形状，否则会以「无法识别的角色标题」失败关闭（这是有意的，不做猜测式解析）。
 - **pending 候选需要人工合并**：写入冲突时只落可合并的 Markdown 候选，不会自动替换或删除原笔记。
