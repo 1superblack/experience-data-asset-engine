@@ -209,6 +209,8 @@ note = prepare_distillation(session, load_config())    # 无模型时抛 Distill
   python scripts/build_skill_zip.py --output dist/experience-data-asset-engine.zip
   python scripts/build_skill_zip.py --output dist/x.zip --list   # 额外打印包内清单
   ```
+  同一台机器、同一 zlib 实现下两次打包字节一致；**跨机不保证同哈希**——跨机一致性请比对
+  包内文件清单与内容哈希，对外发布的校验值建议由 CI 产出。
 - **未实现**：上架 SkillHub、发 GitHub Release。仓库内没有发布产物，
   也不存在「上架后一键安装」路径——请按上面的「安装」一节从源码或 zip 安装。
 

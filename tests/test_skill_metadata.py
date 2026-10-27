@@ -301,3 +301,10 @@ def test_documented_packaging_command_matches_script() -> None:
     assert "--output" in script
     readme = README_PATH.read_text(encoding="utf-8")
     assert "scripts/build_skill_zip.py --output" in readme
+
+
+def test_readme_documents_packaging_limits() -> None:
+    """打包的可复现边界必须写明：跨机不保证同哈希。"""
+    text = README_PATH.read_text(encoding="utf-8")
+    assert re.search(r"跨机.*不保证同哈希", text), "README 必须写明跨机不保证同哈希"
+    assert "build_skill_zip.py --output" in text, "打包命令必须是可执行形式"
