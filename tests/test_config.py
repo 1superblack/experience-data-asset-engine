@@ -528,6 +528,23 @@ def test_init_rejects_two_link_cycle(tmp_path):
         init_config(vault)
 
 
+def test_init_rejects_too_deep_symlink_chain(tmp_path):
+    vault = tmp_path / "vault"
+    (vault / ".obsidian").mkdir(parents=True)
+    (vault / "real-state").mkdir()
+    hops = 40
+    for index in range(hops):
+        target = f"hop-{index + 1}" if index + 1 < hops else "real-state"
+        try:
+            (vault / f"hop-{index}").symlink_to(target, target_is_directory=True)
+        except (OSError, NotImplementedError):  # pragma: no cover - 依赖宿主权限
+            pytest.skip("当前环境不支持创建目录符号链接")
+    (vault / STATE_DIRNAME).symlink_to("hop-0", target_is_directory=True)
+
+    with pytest.raises(ConfigError, match="符号链接层数"):
+        init_config(vault)
+
+
 def test_load_config_rejects_symlink_loop_in_state_dir(tmp_path):
     vault = tmp_path / "vault"
     (vault / ".obsidian").mkdir(parents=True)
