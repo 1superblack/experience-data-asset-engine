@@ -246,6 +246,7 @@ FORBIDDEN_CLAIMS = {
     "自动重算 review_after": r"review_after`? 由\s*`?compute_review_after",
     "不存在的检索子命令": r"检索笔记",
     "不存在的校验脚本": r"quick_validate",
+    "未发生的 CI 通过": r"CI\s*(已通过|校验通过)|GitHub Actions 已(通过|跑过)",
 }
 
 
@@ -272,3 +273,11 @@ def test_expiry_policy_admits_missing_wiring() -> None:
     text = re.sub(r"\s+", "", (ROOT / "references" / "expiry-policy.md").read_text(encoding="utf-8"))
     assert "没有接入归档主链路" in text
     assert "没有config级覆盖开关" in text
+
+
+def test_readme_documents_uninstalled_usage() -> None:
+    """分发压缩包里没有 pyproject.toml，README 必须给出免安装入口。"""
+    text = README_PATH.read_text(encoding="utf-8")
+    assert "python scripts/cli.py" in text
+    assert "分发压缩包" in text
+    assert "不需要也不要执行 pip 安装" in text

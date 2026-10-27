@@ -24,7 +24,7 @@
 
 ## 安装
 
-**要求 Python 3.11 或更高版本。** 在仓库根目录执行：
+**要求 Python 3.11 或更高版本。** 从源码仓库安装，在仓库根目录执行：
 
 ```bash
 python -m pip install -e ".[dev,codex]"
@@ -36,6 +36,10 @@ python -m pip install -e ".[dev,codex]"
 - 不安装也可以直接用 `python scripts/cli.py ...` 运行（`scripts/cli.py` 会把 `src/` 加进
   `sys.path`）。
 - 装好后多一个控制台入口 `experience-data-asset-engine`。
+- 如果拿到的是分发压缩包（只有 `scripts/`、`src/`、`references/`、`agents/` 与几个根级
+  Markdown），**不需要也不要执行 pip 安装**——直接用
+  `python scripts/cli.py <子命令> ...` 即可；本文后面的命令把
+  `experience-data-asset-engine` 换成 `python scripts/cli.py` 完全等价。
 
 ## 快速开始（2 分钟）
 
@@ -209,8 +213,8 @@ note = prepare_distillation(session, load_config())    # 无模型时抛 Distill
   审计与 provider 提示词中统一替换为 `[已脱敏]`；标题同样走脱敏，统计里只报次数、不报内容。
 - 被降噪丢弃的文本不写入任何地方（不进 staging、不进审计、不进错误消息）。
 - 不配置模型时**不发任何网络请求**，只写本地 staging 文件。
-- 本项目不内附任何真实对话；`tests/fixtures/` 下的会话样本全部为合成的测试数据，
-  不是真实用户数据。
+- 本项目不内附任何真实对话；仓库内 `tests/fixtures/` 下的会话样本全部为合成的测试数据，
+  不是真实用户数据（分发压缩包不含 `tests/`）。
 
 ## 卸载
 
