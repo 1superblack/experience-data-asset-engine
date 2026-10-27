@@ -36,6 +36,22 @@
     改为「在校验、统计时默认排除已过时与已被取代的笔记」；README 同步注明检索由
     Obsidian 查询或 `iter_notes()` 完成。
   - `CHANGELOG` 原引用的 `quick_validate.py` 不在本仓库，改为描述校验器的键约束。
+- **拆开「打包」与「上架」两种能力**（B 的 `scripts/build_skill_zip.py` 落地后，
+  「仓库内没有发布产物」这句话已不成立）：
+  - `打包`：本地 `python scripts/build_skill_zip.py --output dist/<name>.zip` 已可用，
+    根目录直挂 `SKILL.md`、条目排序与时间戳固定、打包后回读自检，检出凭据或个人路径即非零退出。
+    同机同源两次打包 zip 字节一致，**跨机不保证同哈希**（deflate 输出取决于 zlib 版本），
+    文档按此口径写，未写成跨机承诺。
+  - `上架发布流水线`：仍**未实现**，没有 SkillHub / GitHub 自动发布，也没有上架后一键安装路径。
+  - `SKILL.md` 的「不要声称」清单同步收窄为「把包上架到 SkillHub 或 GitHub」。
+- **README 隐私节链接 `SECURITY.md`**（不复制其 5 条承诺，避免两套口径）。
+- `references/config.md` 的 `audit/` 一行收窄为「`created` / `updated` / `pending` 时追加；
+  `skipped` 不写」——`writer.py` 的 `_append_audit` 只在 `:718`（pending）与 `:807`（成功写入）
+  被调用，`skipped` 提前 return。
+- 测试从「禁词」升级为「方向正确的护栏」：原先 `assert "打包发布" in text and "未实现" in text`
+  会在打包能力落地后把**改对的文档判红**，现改为「上架必须标未实现 + `build_skill_zip` 必须被承认」；
+  打包脚本与 `SECURITY.md` 尚在 `gate5/agent-b` 分支时对应测试自动 skip（合并后生效），
+  避免本分支出现「文档引用了不存在的文件却测试通过」的假绿。
 
 ### 命名
 

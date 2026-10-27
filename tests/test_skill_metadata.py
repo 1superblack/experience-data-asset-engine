@@ -110,12 +110,15 @@ def test_skill_has_exactly_five_top_level_sections() -> None:
 
 
 def test_skill_keeps_capability_boundary() -> None:
-    """打包发布没实现这件事必须写在 SKILL.md 里，不能被精简掉。"""
+    """打包已实现、上架未实现——这两件事必须分开写，不能被合并成一句「未实现」。"""
     text = SKILL_PATH.read_text(encoding="utf-8")
-    assert "打包发布" in text
+    # 上架流水线仍未实现，必须显式承认
+    assert "上架" in text
     assert "未实现" in text
-    # 不能出现「已发布 / 已上架 / 生产可用」这类与实际不符的措辞
-    for word in ("已发布到 SkillHub", "已上架", "可直接生产使用"):
+    # 打包能力已存在（build_skill_zip.py），不能继续标成未实现
+    assert "build_skill_zip" in text, "SKILL.md 必须承认本地打包能力已可用"
+    # 不能出现「已上架 / 生产可用 / 已发布到 SkillHub」这类与实际不符的措辞
+    for word in ("已上架", "已发布到 SkillHub", "可直接生产使用"):
         assert word not in text, f"SKILL.md 出现了未实现的宣称: {word}"
 
 
@@ -187,7 +190,16 @@ def test_readme_does_not_claim_unimplemented_write_path() -> None:
     for stale in ("没有写入能力", "仍是退出码 4", "未实现 |"):
         assert stale not in text, f"README.md 残留过期陈述: {stale}"
     assert "SkillHub" in text
-    assert "未实现" in text, "README.md 应说明打包发布仍未实现"
+    # 打包已实现（build_skill_zip.py），只有上架流水线仍未实现
+    assert "上架" in text, "README.md 必须说明上架发布流水线仍未实现"
+    assert "build_skill_zip" in text, "README.md 必须给出本地打包命令"
+
+
+def test_readme_documents_packaging_limits() -> None:
+    """打包脚本宣称可复现，但只在同机同 zlib 下成立——文档不能把它写成跨机承诺。"""
+    text = README_PATH.read_text(encoding="utf-8")
+    assert "跨机不保证同哈希" in text
+    assert "上架后的一键安装" in text
 
 
 def test_readme_marks_fixtures_as_synthetic() -> None:
@@ -264,8 +276,8 @@ def test_documents_make_no_unimplemented_promise(path: Path) -> None:
 
 def test_readme_states_review_after_is_an_input() -> None:
     """写入端直接采用 DistilledNote.review_after，不会按周期重算。"""
-    text = README_PATH.read_text(encoding="utf-8")
-    assert "review_after` 是写入时的输入" in text
+    text = re.sub(r"\s+", "", README_PATH.read_text(encoding="utf-8"))
+    assert "review_after`是写入时的输入" in text
     assert "compute_review_after" in text, "README 应指出周期函数尚未接入归档主链路"
 
 
@@ -277,7 +289,33 @@ def test_expiry_policy_admits_missing_wiring() -> None:
 
 def test_readme_documents_uninstalled_usage() -> None:
     """分发压缩包里没有 pyproject.toml，README 必须给出免安装入口。"""
-    text = README_PATH.read_text(encoding="utf-8")
-    assert "python scripts/cli.py" in text
+    # 按空白归一化后比对，避免因换行位置变动而误报（断言的是事实，不是排版）
+    text = re.sub(r"\s+", "", README_PATH.read_text(encoding="utf-8"))
+    assert "pythonscripts/cli.py" in text
     assert "分发压缩包" in text
-    assert "不需要也不要执行 pip 安装" in text
+    assert "不需要也不要执行pip安装" in text
+
+
+BUILD_SCRIPT = ROOT / "scripts" / "build_skill_zip.py"
+SECURITY_PATH = ROOT / "SECURITY.md"
+
+
+@pytest.mark.skipif(
+    not BUILD_SCRIPT.exists(),
+    reason="打包脚本在 gate5/agent-b 分支，合并后才在本分支可见",
+)
+def test_documented_packaging_command_matches_script() -> None:
+    """README 写的打包命令必须与脚本真实参数一致。"""
+    script = BUILD_SCRIPT.read_text(encoding="utf-8")
+    assert "--output" in script
+    assert "--list" in script
+    readme = README_PATH.read_text(encoding="utf-8")
+    assert "scripts/build_skill_zip.py --output" in readme
+
+
+@pytest.mark.skipif(
+    not SECURITY_PATH.exists(),
+    reason="SECURITY.md 在 gate5/agent-b 分支，合并后才在本分支可见",
+)
+def test_readme_links_security_policy() -> None:
+    assert "SECURITY.md" in README_PATH.read_text(encoding="utf-8")

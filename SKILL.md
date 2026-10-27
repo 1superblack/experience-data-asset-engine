@@ -55,10 +55,11 @@ metadata:
 | 写入 vault（幂等 + 冲突 pending） | `writer.py` | 已实现 |
 | 校验 / 状态 / 到期复核 | `validate` / `status` / `recheck` | 已实现 |
 | 卸载（只删状态目录） | `uninstall --yes` | 已实现 |
-| 打包发布（SkillHub / GitHub 上架流水线） | — | **未实现**，仓库内没有发布产物 |
+| 打包（本地 zip，根目录直挂 SKILL.md + 出厂自检） | `scripts/build_skill_zip.py` | 已实现 |
+| 上架发布流水线（SkillHub / GitHub 自动发布） | — | **未实现**，没有「上架后一键安装」路径 |
 
-**不要向用户声称做过这些没做的事**：打包发布到 SkillHub 或 GitHub、修改非本工具创建的笔记、
-删除任何 Markdown、把对话原文当笔记写入。
+**不要向用户声称做过这些没做的事**：把包上架到 SkillHub 或 GitHub（本仓库只能本地打包）、
+修改非本工具创建的笔记、删除任何 Markdown、把对话原文当笔记写入。
 
 ## 安全边界
 

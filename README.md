@@ -202,8 +202,13 @@ note = prepare_distillation(session, load_config())    # 无模型时抛 Distill
 - **处理**：四层降噪与脱敏、模型无关蒸馏、无模型时只产出 staging。
 - **写入**：原子写、内容哈希幂等、冲突落 pending 候选、单会话只允许一篇正式笔记。
 - **只读命令**：`validate`、`status`、`recheck --due`。
-- **未实现**：SkillHub 打包发布、GitHub 发布流水线。仓库内没有发布产物，
-  也不存在「上架 SkillHub 后的一键安装」路径——请按上面的「安装」一节从源码安装。
+- **打包**：`python scripts/build_skill_zip.py --output dist/<name>.zip` 产出可分发的 zip
+  （解压后 `SKILL.md` 直挂第一层、条目排序与时间戳固定、打包后回读自检；只要检出被排除的
+  路径、疑似凭据或个人绝对路径就非零退出，宁可打不出包也不发带隐私的包）。
+  同一台机器、同一 zlib 实现下两次打包 zip 字节一致；**跨机不保证同哈希**，
+  跨机一致性请比对包内文件清单与内容哈希。
+- **未实现**：SkillHub / GitHub 的上架发布流水线，以及「上架后的一键安装」路径。
+  目前只有本地打包，没有自动发布到任何 Skill 市场。
 
 ## 隐私
 
@@ -215,6 +220,7 @@ note = prepare_distillation(session, load_config())    # 无模型时抛 Distill
 - 不配置模型时**不发任何网络请求**，只写本地 staging 文件。
 - 本项目不内附任何真实对话；仓库内 `tests/fixtures/` 下的会话样本全部为合成的测试数据，
   不是真实用户数据（分发压缩包不含 `tests/`）。
+- 完整安全承诺与漏洞报告方式见 [SECURITY.md](SECURITY.md)。
 
 ## 卸载
 

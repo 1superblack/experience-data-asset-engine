@@ -15,7 +15,7 @@
 |---|---|---|
 | `config.json` | 配置 | 是 |
 | `state.json` | 会话幂等状态（来源 + 会话 ID -> 笔记路径 + 内容哈希） | 是（写入时维护） |
-| `audit/` | 每次写入的审计 JSON（`audit/write-audit.jsonl`） | 是（写入时追加） |
+| `audit/` | 每次写入的审计 JSON（`audit/write-audit.jsonl`，只记路径、哈希、动作、计数） | 是（`created` / `updated` / `pending` 时追加；`skipped` 不写） |
 | `staging/` | 无模型时生成的蒸馏请求（`<state_key>.request.md` + `.schema.json`） | 是（无模型归档时） |
 
 这些文件都在 `.` 开头的目录里，Obsidian 默认不展示，不会污染笔记列表。
