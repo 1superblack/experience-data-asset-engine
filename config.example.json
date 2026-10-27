@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "archive_dir": "04-对话存档",
+  "provider": null,
+  "model": null,
+  "base_url": null,
+  "api_key_env": "OKD_API_KEY",
+  "created_at": null,
+  "tool_version": "0.1.0"
+}
