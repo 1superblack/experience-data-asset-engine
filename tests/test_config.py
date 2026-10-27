@@ -459,6 +459,20 @@ def test_probe_file_uses_edae_prefix(tmp_path, monkeypatch):
     assert list(tmp_path.iterdir()) == []
 
 
+def test_archive_rel_raises_config_error_when_outside_vault(tmp_path):
+    vault = tmp_path / "vault"
+    (vault / ".obsidian").mkdir(parents=True)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    config = AppConfig(
+        vault=vault.resolve(),
+        archive_dir=outside.resolve(),
+        state_dir=(vault / STATE_DIRNAME).resolve(),
+    )
+    with pytest.raises(ConfigError, match="outside vault"):
+        config.archive_rel
+
+
 def test_ensure_inside_vault_wraps_unresolvable_path(tmp_path, monkeypatch):
     """损坏的符号链接 / 链接环会让 resolve() 抛 OSError，必须转成 ConfigError。"""
 
