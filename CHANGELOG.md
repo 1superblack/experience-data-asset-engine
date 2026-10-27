@@ -107,14 +107,22 @@
   时效分级保守确定性，证据不足一律落 `evolving`。口径见 `references/expiry-policy.md`。
 - **安全写入**（`writer.py`）：`write_note` 返回 `created / updated / skipped / pending`，
   绝不静默成功。同一 `source + session_id` 内容未变即 `skipped`，文件字节不动；
-  目标被手写笔记占用时只写 `<title>.pending.md`（冲突再加哈希后缀，12 个名额用尽即失败关闭）；
-  同目录临时文件 + `os.replace` 原子替换；`dry_run` 零写入（不建目录、不写 state/audit）。
+  目标被手写笔记占用时只写 `<title>.pending-<hash8>.md` 候选（**完整 Markdown，可合并**，
+  同一冲突重复归档命中同一个文件，不产生 `.pending-2` / `.pending-3`）；
+  同一会话改标题或项目名**不再** created 第二篇正式笔记，改为落 pending 并标出「待合并到」的旧路径，
+  工具不移动、不删除任何笔记；同目录临时文件 + `os.replace` 原子替换；
+  `dry_run` 零写入（不建目录、不写 state/audit）。
   写入边界再次 `redact_sensitive`，标题与项目名脱敏后仍须通过原有路径校验。
+- **日期口径**：`created` / `updated` 用**本地日期**，不用 UTC——否则东八区每天 00:00-08:00
+  会把归档日写成前一天。
 - **vault 校验与过期过滤**（`validator.py`）：`validate_vault` 结构化上报缺字段、空字段、
   字段类型错误、非法状态、非法内容时效、非法日期、`取代自`/`取代为` 断链/单向/自指、
   frontmatter 无法解析；解析失败的文件绝不进入 `valid`。`iter_notes` 默认只给
-  `有效` + `待复核`（后者排序靠后），`include_stale=True` 恢复全部并如实报告跳过数。
-  `iter_due_notes` 只产出复核候选，不改状态、不删文件。
+  `有效` + `待复核`（后者排序靠后）**且字段校验必须通过**——「可检索」不得比「可校验」更宽松；
+  `include_stale=True` 恢复全部并如实报告跳过数。`iter_due_notes` 只产出复核候选，
+  不改状态、不删文件；单篇 `review_after` 非法时跳过该篇（由校验报 `invalid_date`），
+  不中断整批复核。pending 候选按文件名识别：不进检索、不算 valid、计入 `skipped`，
+  也不会被当成坏 frontmatter。
 - **frontmatter 往返保真**：逗号分隔的列表项按引号切分；纯数字串（如全数字哈希）渲染时加引号，
   否则回读会被解析成 `int`，导致「内容没变」被误判成「内容变了」。
 
