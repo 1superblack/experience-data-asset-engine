@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import re
 import subprocess
 import sys
@@ -41,6 +42,20 @@ EXPECTED_TOP_LEVEL = {
     "scripts",
     "src",
 }
+
+#: 包内根目录必须一字不差带上的文件。
+#: 这里是**显式**清单（产物契约不跟着脚本实现走），另有
+#: ``test_root_file_manifest_matches_build_script`` 把它和打包白名单钉在一起，
+#: 任何一边增删文件而另一边没跟，测试就会失败——避免清单悄悄漂移。
+REQUIRED_ROOT_FILES = frozenset(
+    {
+        "SKILL.md",
+        "LICENSE",
+        "README.md",
+        "CHANGELOG.md",
+        "SECURITY.md",
+    }
+)
 
 
 def run_build(output: Path, cwd: Path = ROOT) -> subprocess.CompletedProcess[str]:
@@ -84,18 +99,31 @@ def test_no_wrapping_subdirectory(packaged: tuple[Path, str]) -> None:
     assert tops <= EXPECTED_TOP_LEVEL, f"出现了计划外的顶层条目：{sorted(tops - EXPECTED_TOP_LEVEL)}"
 
 
+def _load_build_script_module():
+    """导入打包脚本本身，用于比对白名单（不影响上面「只断言产物」的原则）。"""
+    spec = importlib.util.spec_from_file_location("build_skill_zip", SCRIPT)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_root_file_manifest_matches_build_script() -> None:
+    """测试里的根目录清单必须与打包脚本的 ``ROOT_FILES`` 完全一致（双向）。"""
+    root_files = set(_load_build_script_module().ROOT_FILES)
+    assert root_files == set(REQUIRED_ROOT_FILES), (
+        "根目录清单漂移："
+        f"脚本独有={sorted(root_files - REQUIRED_ROOT_FILES)}，"
+        f"测试独有={sorted(set(REQUIRED_ROOT_FILES) - root_files)}"
+    )
+
+
 def test_required_members_present(packaged: tuple[Path, str]) -> None:
     archive_path, _ = packaged
     names = set(_names(archive_path))
-    required = {
-        "SKILL.md",
-        "LICENSE",
-        "README.md",
-        "CHANGELOG.md",
-        "SECURITY.md",
-        "agents/openai.yaml",
-    }
-    assert required <= names
+    missing = REQUIRED_ROOT_FILES - names
+    assert not missing, f"包内根目录缺少必需文件：{sorted(missing)}"
+    assert "agents/openai.yaml" in names
     for prefix in ("scripts/", "src/", "references/"):
         assert any(name.startswith(prefix) for name in names), f"缺少 {prefix}"
     # README 里写到的参考文档必须真的在包里，否则用户点开就是 404。

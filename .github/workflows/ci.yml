@@ -139,15 +139,16 @@ jobs:
           fi
 
   tests-windows:
-    # 平台敏感逻辑在 ubuntu 上零覆盖：Windows 保留名拒绝（CON/PRN/AUX…）、
-    # 状态目录是 junction/符号链接时拒绝删除、_today() 取本地日期（东八区）、CRLF 处理。
-    # 只跑这三个文件，控分钟数；本机 Windows 11 实测 127 passed。
+    # 项目历史上多次踩到 Windows 专属问题：保留名拒绝（CON/PRN/AUX…）、
+    # 状态目录是 junction/符号链接时拒绝删除、_today() 必须取本地日期（东八区）、
+    # CRLF 与反斜杠路径处理。ubuntu 上这些分支一条都不会被执行，所以单开一个 job。
+    # 矩阵只留 3.11：平台差异与 Python 版本无关，多铺一版只是烧分钟数。
     name: py${{ matrix.python }} / windows
     runs-on: windows-latest
     strategy:
       fail-fast: false
       matrix:
-        python: ["3.11", "3.12"]
+        python: ["3.11"]
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
@@ -164,7 +165,5 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev,codex]"
 
-      - name: 平台敏感测试（写入/卸载/配置）
-        run: >-
-          python -m pytest -q --cache-clear
-          tests/test_writer.py tests/test_cli_uninstall.py tests/test_config.py
+      - name: 全量测试
+        run: python -m pytest -q --cache-clear
