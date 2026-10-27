@@ -25,7 +25,7 @@ from __future__ import annotations
 import re
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Final
 
@@ -556,13 +556,50 @@ def iter_due_notes(
 # --- 只改状态字段（复核用） ---------------------------------------------------
 
 
+def _local_today() -> date:
+    """当前日期，**本地时区**。
+
+    与 ``writer._today`` 同一口径：不能用 ``datetime.now(timezone.utc).date()``，
+    否则东八区 00:00-08:00 复核会把 ``updated`` 写成前一天，和用户日历对不上。
+    """
+    return datetime.now().date()
+
+
+def _line_ending(raw: str) -> str:
+    """取一行原本的行尾，用于「只换内容、不换换行风格」。"""
+    if raw.endswith("\r\n"):
+        return "\r\n"
+    if raw.endswith("\n"):
+        return "\n"
+    return ""
+
+
+def _frontmatter_end(lines: Sequence[str], name: str) -> int:
+    """返回 frontmatter 结束分隔线的行号。缺失任一端都拒绝修改。"""
+    if not lines or lines[0].strip() != FRONTMATTER_FENCE:
+        raise InputError(f"{name} 缺少 frontmatter 起始行，拒绝修改")
+    for index in range(1, len(lines)):
+        if lines[index].strip() == FRONTMATTER_FENCE:
+            return index
+    raise InputError(f"{name} 的 frontmatter 没有结束行，拒绝修改")
+
+
 def set_note_status(config: AppConfig, path: Path, status: str) -> Path:
     """把一篇**本工具生成的**正式笔记的 ``状态`` 字段改成新值。
 
-    原子性由「整文件重写 + 临时文件替换」保证；除 ``状态`` 那一行之外，
-    frontmatter 其余字段与正文都按原字节保留（换行风格也保留）。
+    ``状态`` 真的变化时，同时把 ``updated`` 打成**当前本地日期**——否则笔记里
+    记的「最后更新时间」会一直停在归档那天，复核动作在元数据里留不下痕迹。
 
-    拒绝：越界路径、不存在、pending 候选、非本工具笔记、非法状态、缺 ``状态`` 行。
+    三条边界：
+
+    1. **幂等**：``状态`` 没变就一个字节都不写（``updated`` 是旧日期也不动它），
+       重复执行 ``recheck --status`` 不会平白刷新时间戳。
+    2. **最小改动**：只有 ``状态`` 与 ``updated`` 两行被替换；``created``、正文、
+       其它 frontmatter 字段逐字节保留，连原文件的 CRLF/LF 风格也保留
+       （所以这里按字节读，不走 ``read_text`` 的通用换行归一化）。
+    3. **原子**：整文件经 ``write_text_atomic`` 重写 + 替换，不留半截 Markdown。
+
+    拒绝：越界路径、不存在、pending 候选、非本工具笔记、非法状态、缺 ``状态``/``updated`` 行。
     """
     if status not in STATUS_VALUES:
         raise InputError(
@@ -576,40 +613,36 @@ def set_note_status(config: AppConfig, path: Path, status: str) -> Path:
             f"{target.name} 是待合并候选（pending），不是正式笔记，不能直接改状态"
         )
 
-    text = target.read_text(encoding="utf-8")
+    # 按字节读再解码：read_text 会把 CRLF 归一成 LF，写回去就把用户的换行风格改掉了
+    text = target.read_bytes().decode("utf-8")
     fields, _body = parse_frontmatter(text)
     if fields.get("生成器") != GENERATOR:
         raise InputError(
             f"{target.name} 不是本工具生成的笔记（生成器字段不符），拒绝修改"
         )
+    if fields.get("状态") == status:
+        # 状态未变化：零写入（不刷 updated、不重排 frontmatter）
+        return target
 
     lines = text.splitlines(keepends=True)
-    if not lines or lines[0].strip() != FRONTMATTER_FENCE:
-        raise InputError(f"{target.name} 缺少 frontmatter 起始行，拒绝修改")
-    end = None
-    for index in range(1, len(lines)):
-        if lines[index].strip() == FRONTMATTER_FENCE:
-            end = index
-            break
-    if end is None:
-        raise InputError(f"{target.name} 的 frontmatter 没有结束行，拒绝修改")
+    end = _frontmatter_end(lines, target.name)
 
+    status_index: int | None = None
+    updated_index: int | None = None
     for index in range(1, end):
-        raw = lines[index]
-        if raw.lstrip().startswith("状态:"):
-            if raw.endswith("\r\n"):
-                ending = "\r\n"
-            elif raw.endswith("\n"):
-                ending = "\n"
-            else:
-                ending = ""
-            new_line = f"状态: {status}{ending}"
-            if new_line == raw:
-                return target
-            lines[index] = new_line
-            break
-    else:
+        stripped = lines[index].lstrip()
+        if status_index is None and stripped.startswith("状态:"):
+            status_index = index
+        elif updated_index is None and stripped.startswith("updated:"):
+            updated_index = index
+    if status_index is None:
         raise InputError(f"{target.name} 的 frontmatter 缺少「状态」字段，拒绝修改")
+    if updated_index is None:
+        raise InputError(f"{target.name} 的 frontmatter 缺少「updated」字段，拒绝修改")
+
+    today = _local_today().isoformat()
+    lines[status_index] = f"状态: {status}{_line_ending(lines[status_index])}"
+    lines[updated_index] = f"updated: {today}{_line_ending(lines[updated_index])}"
 
     write_text_atomic(target, "".join(lines))
     return target
