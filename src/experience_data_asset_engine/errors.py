@@ -31,3 +31,10 @@ class OptionalDependencyError(InputError):
 
 class SchemaError(DistillerError, ValueError):
     """JSON 或数据结构不符合协议。"""
+
+
+class DistillationError(DistillerError):
+    """蒸馏执行失败：模型接口、响应结构或解析。
+
+    任何情况下都不降级为「把原文当笔记」。
+    """

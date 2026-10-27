@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "source": "manual",
+  "session_id": "noisy-001",
+  "title": "合成噪声样本（规则级）",
+  "created_at": "2026-10-27T09:00:00+08:00",
+  "updated_at": "2026-10-27T09:30:00+08:00",
+  "model": null,
+  "cwd": "/path/to/project",
+  "messages": [
+    {
+      "role": "user",
+      "text": "<app-context>\nworkspace: /path/to/project\n平台: win32\n</app-context>",
+      "created_at": "2026-10-27T09:00:00+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "先把降噪规则定下来，再写实现。",
+      "created_at": "2026-10-27T09:01:00+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "建议按四层拆分：输入、执行、知识、安全。",
+      "created_at": "2026-10-27T09:02:00+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "{\"tool\": \"shell\", \"command\": [\"ls\", \"-la\"]}",
+      "created_at": "2026-10-27T09:03:00+08:00",
+      "kind": "tool_call"
+    },
+    {
+      "role": "tool",
+      "text": "total 12\ndrwxr-xr-x  5 demo demo 4096 Oct 27 09:00 .\nTraceback (most recent call last):\n  File \"x.py\", line 1\n    raise SystemExit(1)\nSystemExit: 1\nline-0001 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nline-0002 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nline-0003 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nline-0004 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nline-0005 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nline-0006 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nline-0007 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nline-0008 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nline-0009 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nline-0010 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "created_at": "2026-10-27T09:04:00+08:00",
+      "kind": "tool_result"
+    },
+    {
+      "role": "user",
+      "text": "好的",
+      "created_at": "2026-10-27T09:05:00+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "先把降噪规则定下来，再写实现。",
+      "created_at": "2026-10-27T09:06:00+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "又失败了",
+      "created_at": "2026-10-27T09:07:00+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "配置里有 token=abcdef1234567890，先记着，别写进笔记。",
+      "created_at": "2026-10-27T09:08:00+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "   ",
+      "created_at": "2026-10-27T09:09:00+08:00",
+      "kind": "message"
+    }
+  ],
+  "metadata": {
+    "fixture": true
+  }
+}

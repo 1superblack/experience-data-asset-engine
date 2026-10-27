@@ -1,0 +1,1216 @@
+{
+  "schema_version": 1,
+  "source": "manual",
+  "session_id": "noisy-200",
+  "title": "合成噪声样本（200 条）",
+  "created_at": "2026-10-27T10:00:00+08:00",
+  "updated_at": "2026-10-27T11:00:00+08:00",
+  "model": null,
+  "cwd": "/path/to/project",
+  "messages": [
+    {
+      "role": "user",
+      "text": "把降噪拆成四层来做，先写规则再写实现，别一上来就调模型。",
+      "created_at": "2026-10-27T10:00:00+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "把降噪拆成四层来做，先写规则再写实现，别一上来就调模型。",
+      "created_at": "2026-10-27T10:00:01+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "<app-context>\nworkspace: /path/to/project\n轮次: 0\n</app-context>",
+      "created_at": "2026-10-27T10:00:02+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "好",
+      "created_at": "2026-10-27T10:00:03+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "{\"tool\": \"shell\", \"command\": [\"ls\", \"-la\", \"/path/to/project/dir0\"], \"timeout\": 30}",
+      "created_at": "2026-10-27T10:00:04+08:00",
+      "kind": "tool_call"
+    },
+    {
+      "role": "tool",
+      "text": "Traceback (most recent call last):\n  File \"build.py\", line 12, in <module>\n    raise SystemExit(1)\nSystemExit: 1\nexit code: 1\nline-0000 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0001 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0002 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0003 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0004 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0005 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0006 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0007 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0008 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0009 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0010 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0011 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0012 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0013 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0014 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0015 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0016 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0017 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0018 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0019 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0020 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0021 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0022 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0023 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0024 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0025 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0026 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0027 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0028 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0029 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0030 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0031 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0032 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0033 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0034 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0035 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0036 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0037 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0038 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0039 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0040 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0041 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0042 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0043 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0044 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0045 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0046 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0047 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n",
+      "created_at": "2026-10-27T10:00:05+08:00",
+      "kind": "tool_result"
+    },
+    {
+      "role": "assistant",
+      "text": "失败了",
+      "created_at": "2026-10-27T10:00:06+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "把降噪拆成四层来做，先写规则再写实现，别一上来就调模型。",
+      "created_at": "2026-10-27T10:00:07+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "输入层先处理系统注入：app context、权限说明、环境变量注释都算噪声。",
+      "created_at": "2026-10-27T10:00:08+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "<app-context>\nworkspace: /path/to/project\n轮次: 1\n</app-context>",
+      "created_at": "2026-10-27T10:00:09+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "好的",
+      "created_at": "2026-10-27T10:00:10+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "{\"tool\": \"shell\", \"command\": [\"ls\", \"-la\", \"/path/to/project/dir1\"], \"timeout\": 30}",
+      "created_at": "2026-10-27T10:00:11+08:00",
+      "kind": "tool_call"
+    },
+    {
+      "role": "tool",
+      "text": "Traceback (most recent call last):\n  File \"build.py\", line 12, in <module>\n    raise SystemExit(1)\nSystemExit: 1\nexit code: 1\nline-0000 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0001 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0002 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0003 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0004 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0005 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0006 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0007 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0008 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0009 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0010 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0011 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0012 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0013 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0014 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0015 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0016 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0017 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0018 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0019 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0020 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0021 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0022 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0023 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0024 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0025 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0026 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0027 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0028 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0029 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0030 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0031 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0032 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0033 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0034 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0035 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0036 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0037 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0038 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0039 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0040 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0041 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0042 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0043 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0044 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0045 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0046 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0047 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n",
+      "created_at": "2026-10-27T10:00:12+08:00",
+      "kind": "tool_result"
+    },
+    {
+      "role": "assistant",
+      "text": "还是不行",
+      "created_at": "2026-10-27T10:00:13+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "死路短句加结论词豁免：出现因为所以改成修复这些词就不算死路。",
+      "created_at": "2026-10-27T10:00:14+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "执行层要挡住工具输出，尤其是带 Traceback 和长日志的那种。",
+      "created_at": "2026-10-27T10:00:15+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "执行层要挡住工具输出，尤其是带 Traceback 和长日志的那种。",
+      "created_at": "2026-10-27T10:00:16+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "<app-context>\nworkspace: /path/to/project\n轮次: 2\n</app-context>",
+      "created_at": "2026-10-27T10:00:17+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "嗯",
+      "created_at": "2026-10-27T10:00:18+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "{\"tool\": \"shell\", \"command\": [\"ls\", \"-la\", \"/path/to/project/dir2\"], \"timeout\": 30}",
+      "created_at": "2026-10-27T10:00:19+08:00",
+      "kind": "tool_call"
+    },
+    {
+      "role": "tool",
+      "text": "Traceback (most recent call last):\n  File \"build.py\", line 12, in <module>\n    raise SystemExit(1)\nSystemExit: 1\nexit code: 1\nline-0000 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0001 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0002 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0003 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0004 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0005 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0006 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0007 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0008 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0009 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0010 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0011 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0012 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0013 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0014 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0015 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0016 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0017 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0018 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0019 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0020 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0021 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0022 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0023 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0024 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0025 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0026 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0027 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0028 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0029 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0030 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0031 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0032 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0033 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0034 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0035 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0036 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0037 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0038 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0039 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0040 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0041 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0042 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0043 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0044 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0045 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0046 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0047 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n",
+      "created_at": "2026-10-27T10:00:20+08:00",
+      "kind": "tool_result"
+    },
+    {
+      "role": "assistant",
+      "text": "报错，看不懂",
+      "created_at": "2026-10-27T10:00:21+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "如果模型接口返回非 2xx，直接失败关闭，不要拿原文顶上。",
+      "created_at": "2026-10-27T10:00:22+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "知识层做确定性识别：完全重复、近似重复、以及显式失败短句。",
+      "created_at": "2026-10-27T10:00:23+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "<app-context>\nworkspace: /path/to/project\n轮次: 3\n</app-context>",
+      "created_at": "2026-10-27T10:00:24+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "收到",
+      "created_at": "2026-10-27T10:00:25+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "{\"tool\": \"shell\", \"command\": [\"ls\", \"-la\", \"/path/to/project/dir3\"], \"timeout\": 30}",
+      "created_at": "2026-10-27T10:00:26+08:00",
+      "kind": "tool_call"
+    },
+    {
+      "role": "tool",
+      "text": "Traceback (most recent call last):\n  File \"build.py\", line 12, in <module>\n    raise SystemExit(1)\nSystemExit: 1\nexit code: 1\nline-0000 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0001 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0002 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0003 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0004 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0005 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0006 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0007 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0008 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0009 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0010 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0011 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0012 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0013 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0014 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0015 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0016 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0017 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0018 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0019 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0020 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0021 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0022 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0023 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0024 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0025 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0026 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0027 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0028 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0029 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0030 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0031 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0032 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0033 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0034 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0035 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0036 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0037 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0038 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0039 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0040 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0041 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0042 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0043 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0044 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0045 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0046 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0047 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n",
+      "created_at": "2026-10-27T10:00:27+08:00",
+      "kind": "tool_result"
+    },
+    {
+      "role": "assistant",
+      "text": "又失败了",
+      "created_at": "2026-10-27T10:00:28+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "覆盖而不是拒绝，是因为统计值是管道产出，模型没有能力知道真实值。",
+      "created_at": "2026-10-27T10:00:29+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "安全层最后做，先把敏感值替换掉再截断，别让截断把密钥切一半。",
+      "created_at": "2026-10-27T10:00:30+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "安全层最后做，先把敏感值替换掉再截断，别让截断把密钥切一半。",
+      "created_at": "2026-10-27T10:00:31+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "<app-context>\nworkspace: /path/to/project\n轮次: 4\n</app-context>",
+      "created_at": "2026-10-27T10:00:32+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "可以",
+      "created_at": "2026-10-27T10:00:33+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "{\"tool\": \"shell\", \"command\": [\"ls\", \"-la\", \"/path/to/project/dir4\"], \"timeout\": 30}",
+      "created_at": "2026-10-27T10:00:34+08:00",
+      "kind": "tool_call"
+    },
+    {
+      "role": "tool",
+      "text": "Traceback (most recent call last):\n  File \"build.py\", line 12, in <module>\n    raise SystemExit(1)\nSystemExit: 1\nexit code: 1\nline-0000 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0001 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0002 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0003 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0004 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0005 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0006 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0007 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0008 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0009 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0010 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0011 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0012 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0013 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0014 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0015 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0016 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0017 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0018 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0019 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0020 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0021 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0022 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0023 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0024 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0025 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0026 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0027 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0028 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0029 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0030 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0031 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0032 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0033 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0034 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0035 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0036 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0037 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0038 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0039 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0040 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0041 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0042 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0043 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0044 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0045 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0046 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline-0047 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n",
+      "created_at": "2026-10-27T10:00:35+08:00",
+      "kind": "tool_result"
+    },
+    {
+      "role": "assistant",
+      "text": "没用",
+      "created_at": "2026-10-27T10:00:36+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "密码 password=Hunter2Hunter2 这种要替换，但别把整句删了。",
+      "created_at": "2026-10-27T10:00:37+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "统计口径要能对上：丢弃数加保留数必须等于输入数，不能有漏网的。",
+      "created_at": "2026-10-27T10:00:38+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "<app-context>\nworkspace: /path/to/project\n轮次: 5\n</app-context>",
+      "created_at": "2026-10-27T10:00:39+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "行",
+      "created_at": "2026-10-27T10:00:40+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "{\"tool\": \"shell\", \"command\": [\"ls\", \"-la\", \"/path/to/project/dir5\"], \"timeout\": 30}",
+      "created_at": "2026-10-27T10:00:41+08:00",
+      "kind": "tool_call"
+    },
+    {
+      "role": "tool",
+      "text": "$ ls -la /path/to/project/dir5\ntotal 5\nyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "created_at": "2026-10-27T10:00:42+08:00",
+      "kind": "tool_result"
+    },
+    {
+      "role": "assistant",
+      "text": "无效，回滚了",
+      "created_at": "2026-10-27T10:00:43+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "如果一条消息既重复又是死路，按优先级先记重复，避免重复计数。",
+      "created_at": "2026-10-27T10:00:44+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "重复主题用前 80 字符加长度比例判断，宁可漏判也别误杀。",
+      "created_at": "2026-10-27T10:00:45+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "重复主题用前 80 字符加长度比例判断，宁可漏判也别误杀。",
+      "created_at": "2026-10-27T10:00:46+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "<app-context>\nworkspace: /path/to/project\n轮次: 6\n</app-context>",
+      "created_at": "2026-10-27T10:00:47+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "ok",
+      "created_at": "2026-10-27T10:00:48+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "{\"tool\": \"shell\", \"command\": [\"ls\", \"-la\", \"/path/to/project/dir6\"], \"timeout\": 30}",
+      "created_at": "2026-10-27T10:00:49+08:00",
+      "kind": "tool_call"
+    },
+    {
+      "role": "tool",
+      "text": "$ ls -la /path/to/project/dir6\ntotal 6\nyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "created_at": "2026-10-27T10:00:50+08:00",
+      "kind": "tool_result"
+    },
+    {
+      "role": "assistant",
+      "text": "白试一次",
+      "created_at": "2026-10-27T10:00:51+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "cookie: session=demo-session-value-1234 这行也要替换。",
+      "created_at": "2026-10-27T10:00:52+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "死路短句加结论词豁免：出现因为所以改成修复这些词就不算死路。",
+      "created_at": "2026-10-27T10:00:53+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "<app-context>\nworkspace: /path/to/project\n轮次: 7\n</app-context>",
+      "created_at": "2026-10-27T10:00:54+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "OK",
+      "created_at": "2026-10-27T10:00:55+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "{\"tool\": \"shell\", \"command\": [\"ls\", \"-la\", \"/path/to/project/dir7\"], \"timeout\": 30}",
+      "created_at": "2026-10-27T10:00:56+08:00",
+      "kind": "tool_call"
+    },
+    {
+      "role": "tool",
+      "text": "$ ls -la /path/to/project/dir7\ntotal 7\nyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "created_at": "2026-10-27T10:00:57+08:00",
+      "kind": "tool_result"
+    },
+    {
+      "role": "assistant",
+      "text": "这条死路走不通",
+      "created_at": "2026-10-27T10:00:58+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "安全层最后做，先把敏感值替换掉再截断，别让截断把密钥切一半。",
+      "created_at": "2026-10-27T10:00:59+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "脱敏计数按实际替换次数算，不要按规则命中条数虚报。",
+      "created_at": "2026-10-27T10:01:00+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "脱敏计数按实际替换次数算，不要按规则命中条数虚报。",
+      "created_at": "2026-10-27T10:01:01+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "<app-context>\nworkspace: /path/to/project\n轮次: 8\n</app-context>",
+      "created_at": "2026-10-27T10:01:02+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "嗯嗯",
+      "created_at": "2026-10-27T10:01:03+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "{\"tool\": \"shell\", \"command\": [\"ls\", \"-la\", \"/path/to/project/dir8\"], \"timeout\": 30}",
+      "created_at": "2026-10-27T10:01:04+08:00",
+      "kind": "tool_call"
+    },
+    {
+      "role": "tool",
+      "text": "$ ls -la /path/to/project/dir8\ntotal 8\nyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "created_at": "2026-10-27T10:01:05+08:00",
+      "kind": "tool_result"
+    },
+    {
+      "role": "assistant",
+      "text": "放弃了",
+      "created_at": "2026-10-27T10:01:06+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "200 条样本要能跑通：大部分是噪声，保留的应该是真正有信息量的那批。",
+      "created_at": "2026-10-27T10:01:07+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "私钥块要最先替换，否则里面的 base64 会被后面的规则切碎。",
+      "created_at": "2026-10-27T10:01:08+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "<app-context>\nworkspace: /path/to/project\n轮次: 9\n</app-context>",
+      "created_at": "2026-10-27T10:01:09+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "收到。",
+      "created_at": "2026-10-27T10:01:10+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "{\"tool\": \"shell\", \"command\": [\"ls\", \"-la\", \"/path/to/project/dir9\"], \"timeout\": 30}",
+      "created_at": "2026-10-27T10:01:11+08:00",
+      "kind": "tool_call"
+    },
+    {
+      "role": "tool",
+      "text": "$ ls -la /path/to/project/dir9\ntotal 9\nyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "created_at": "2026-10-27T10:01:12+08:00",
+      "kind": "tool_result"
+    },
+    {
+      "role": "assistant",
+      "text": "试了三次都不行",
+      "created_at": "2026-10-27T10:01:13+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "提示词里要明确要求每个 decision 都带 reason，否则不算合格输出。",
+      "created_at": "2026-10-27T10:01:14+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "测试要覆盖正向和负向：每条规则都得有一个不该被丢的反例。",
+      "created_at": "2026-10-27T10:01:15+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "测试要覆盖正向和负向：每条规则都得有一个不该被丢的反例。",
+      "created_at": "2026-10-27T10:01:16+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "# Skills instructions\n- 第 0 条：先读记忆再动手。\n- 第 0 条：不要跳步。",
+      "created_at": "2026-10-27T10:01:17+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "好的。",
+      "created_at": "2026-10-27T10:01:18+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "{\"tool\": \"shell\", \"command\": [\"ls\", \"-la\", \"/path/to/project/dir10\"], \"timeout\": 30}",
+      "created_at": "2026-10-27T10:01:19+08:00",
+      "kind": "tool_call"
+    },
+    {
+      "role": "tool",
+      "text": "$ ls -la /path/to/project/dir10\ntotal 10\nyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "created_at": "2026-10-27T10:01:20+08:00",
+      "kind": "tool_result"
+    },
+    {
+      "role": "assistant",
+      "text": "尝试换编译器失败",
+      "created_at": "2026-10-27T10:01:21+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "截断只影响保留消息，和四层过滤的统计是两回事，要在文档里说清楚。",
+      "created_at": "2026-10-27T10:01:22+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "200 条样本要能跑通：大部分是噪声，保留的应该是真正有信息量的那批。",
+      "created_at": "2026-10-27T10:01:23+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "# Skills instructions\n- 第 1 条：先读记忆再动手。\n- 第 1 条：不要跳步。",
+      "created_at": "2026-10-27T10:01:24+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "行。",
+      "created_at": "2026-10-27T10:01:25+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "{\"tool\": \"shell\", \"command\": [\"ls\", \"-la\", \"/path/to/project/dir11\"], \"timeout\": 30}",
+      "created_at": "2026-10-27T10:01:26+08:00",
+      "kind": "tool_call"
+    },
+    {
+      "role": "tool",
+      "text": "$ ls -la /path/to/project/dir11\ntotal 11\nyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "created_at": "2026-10-27T10:01:27+08:00",
+      "kind": "tool_result"
+    },
+    {
+      "role": "assistant",
+      "text": "failed again",
+      "created_at": "2026-10-27T10:01:28+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "空的助手回复和纯确认语都算输入噪声，不要留在样本里。",
+      "created_at": "2026-10-27T10:01:29+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "我们的配置里 api_key=sk-abcdefghijklmnop1234，先记下来，别写进笔记。",
+      "created_at": "2026-10-27T10:01:30+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "我们的配置里 api_key=sk-abcdefghijklmnop1234，先记下来，别写进笔记。",
+      "created_at": "2026-10-27T10:01:31+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "# Skills instructions\n- 第 2 条：先读记忆再动手。\n- 第 2 条：不要跳步。",
+      "created_at": "2026-10-27T10:01:32+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "ok.",
+      "created_at": "2026-10-27T10:01:33+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "{\"tool\": \"shell\", \"command\": [\"ls\", \"-la\", \"/path/to/project/dir12\"], \"timeout\": 30}",
+      "created_at": "2026-10-27T10:01:34+08:00",
+      "kind": "tool_call"
+    },
+    {
+      "role": "tool",
+      "text": "$ ls -la /path/to/project/dir12\ntotal 12\nyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "created_at": "2026-10-27T10:01:35+08:00",
+      "kind": "tool_result"
+    },
+    {
+      "role": "assistant",
+      "text": "doesn't work at all",
+      "created_at": "2026-10-27T10:01:36+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "网络超时按调用失败处理，超时阈值做成常量方便测试调小。",
+      "created_at": "2026-10-27T10:01:37+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "识别到凭据时只替换不报错，替换后仍然保留这句话的其余部分。",
+      "created_at": "2026-10-27T10:01:38+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "# Skills instructions\n- 第 3 条：先读记忆再动手。\n- 第 3 条：不要跳步。",
+      "created_at": "2026-10-27T10:01:39+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "可以。",
+      "created_at": "2026-10-27T10:01:40+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "{\"tool\": \"shell\", \"command\": [\"ls\", \"-la\", \"/path/to/project/dir13\"], \"timeout\": 30}",
+      "created_at": "2026-10-27T10:01:41+08:00",
+      "kind": "tool_call"
+    },
+    {
+      "role": "tool",
+      "text": "$ ls -la /path/to/project/dir13\ntotal 13\nyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "created_at": "2026-10-27T10:01:42+08:00",
+      "kind": "tool_result"
+    },
+    {
+      "role": "assistant",
+      "text": "no luck here",
+      "created_at": "2026-10-27T10:01:43+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "输入层先处理系统注入：app context、权限说明、环境变量注释都算噪声。",
+      "created_at": "2026-10-27T10:01:44+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "如果模型接口返回非 2xx，直接失败关闭，不要拿原文顶上。",
+      "created_at": "2026-10-27T10:01:45+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "# Skills instructions\n- 第 4 条：先读记忆再动手。\n- 第 4 条：不要跳步。",
+      "created_at": "2026-10-27T10:01:46+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "嗯。",
+      "created_at": "2026-10-27T10:01:47+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "{\"tool\": \"shell\", \"command\": [\"ls\", \"-la\", \"/path/to/project/dir14\"], \"timeout\": 30}",
+      "created_at": "2026-10-27T10:01:48+08:00",
+      "kind": "tool_call"
+    },
+    {
+      "role": "tool",
+      "text": "$ ls -la /path/to/project/dir14\ntotal 14\nyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "created_at": "2026-10-27T10:01:49+08:00",
+      "kind": "tool_result"
+    },
+    {
+      "role": "assistant",
+      "text": "仍然失败",
+      "created_at": "2026-10-27T10:01:50+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "脱敏计数按实际替换次数算，不要按规则命中条数虚报。",
+      "created_at": "2026-10-27T10:01:51+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "响应截断也要拦：finish_reason 是 length 就当场判失败。",
+      "created_at": "2026-10-27T10:01:52+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "Permission instructions: 允许读取 /path/to/project 下的文件（批次 0）。",
+      "created_at": "2026-10-27T10:01:53+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "{\"tool\": \"shell\", \"command\": [\"ls\", \"-la\", \"/path/to/project/dir15\"], \"timeout\": 30}",
+      "created_at": "2026-10-27T10:01:54+08:00",
+      "kind": "tool_call"
+    },
+    {
+      "role": "tool",
+      "text": "$ ls -la /path/to/project/dir15\ntotal 15\nyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "created_at": "2026-10-27T10:01:55+08:00",
+      "kind": "tool_result"
+    },
+    {
+      "role": "assistant",
+      "text": "报错：权限不足",
+      "created_at": "2026-10-27T10:01:56+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "响应截断也要拦：finish_reason 是 length 就当场判失败。",
+      "created_at": "2026-10-27T10:01:57+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "staging 文件名一律用 state_key，原始 session_id 不能进路径。",
+      "created_at": "2026-10-27T10:01:58+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "staging 文件名一律用 state_key，原始 session_id 不能进路径。",
+      "created_at": "2026-10-27T10:01:59+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "Permission instructions: 允许读取 /path/to/project 下的文件（批次 1）。",
+      "created_at": "2026-10-27T10:02:00+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "{\"tool\": \"shell\", \"command\": [\"ls\", \"-la\", \"/path/to/project/dir16\"], \"timeout\": 30}",
+      "created_at": "2026-10-27T10:02:01+08:00",
+      "kind": "tool_call"
+    },
+    {
+      "role": "tool",
+      "text": "$ ls -la /path/to/project/dir16\ntotal 16\nyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "created_at": "2026-10-27T10:02:02+08:00",
+      "kind": "tool_result"
+    },
+    {
+      "role": "assistant",
+      "text": "跑不起来",
+      "created_at": "2026-10-27T10:02:03+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "把 access_token=abcd1234efgh5678 也替换掉，这类前缀最容易漏。",
+      "created_at": "2026-10-27T10:02:04+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "无模型时只写 staging，正式归档目录一个字节都不许动。",
+      "created_at": "2026-10-27T10:02:05+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "Permission instructions: 允许读取 /path/to/project 下的文件（批次 2）。",
+      "created_at": "2026-10-27T10:02:06+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "{\"tool\": \"shell\", \"command\": [\"ls\", \"-la\", \"/path/to/project/dir17\"], \"timeout\": 30}",
+      "created_at": "2026-10-27T10:02:07+08:00",
+      "kind": "tool_call"
+    },
+    {
+      "role": "tool",
+      "text": "$ ls -la /path/to/project/dir17\ntotal 17\nyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "created_at": "2026-10-27T10:02:08+08:00",
+      "kind": "tool_result"
+    },
+    {
+      "role": "assistant",
+      "text": "一点用都没有",
+      "created_at": "2026-10-27T10:02:09+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "替换后句子的语义还在，读的人能知道这里原本有个口令。",
+      "created_at": "2026-10-27T10:02:10+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "提示词里要明确要求每个 decision 都带 reason，否则不算合格输出。",
+      "created_at": "2026-10-27T10:02:11+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "提示词里要明确要求每个 decision 都带 reason，否则不算合格输出。",
+      "created_at": "2026-10-27T10:02:12+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "Permission instructions: 允许读取 /path/to/project 下的文件（批次 3）。",
+      "created_at": "2026-10-27T10:02:13+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "{\"tool\": \"shell\", \"command\": [\"ls\", \"-la\", \"/path/to/project/dir18\"], \"timeout\": 30}",
+      "created_at": "2026-10-27T10:02:14+08:00",
+      "kind": "tool_call"
+    },
+    {
+      "role": "tool",
+      "text": "$ ls -la /path/to/project/dir18\ntotal 18\nyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "created_at": "2026-10-27T10:02:15+08:00",
+      "kind": "tool_result"
+    },
+    {
+      "role": "assistant",
+      "text": "死路，跳过",
+      "created_at": "2026-10-27T10:02:16+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "优先级顺序写进文档：输入、执行、重复、死路，最后才是保留。",
+      "created_at": "2026-10-27T10:02:17+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "被否决方案至少一条非空，这条规则 Gate 1 已经落在协议层了。",
+      "created_at": "2026-10-27T10:02:18+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "Permission instructions: 允许读取 /path/to/project 下的文件（批次 4）。",
+      "created_at": "2026-10-27T10:02:19+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "{\"tool\": \"shell\", \"command\": [\"ls\", \"-la\", \"/path/to/project/dir19\"], \"timeout\": 30}",
+      "created_at": "2026-10-27T10:02:20+08:00",
+      "kind": "tool_call"
+    },
+    {
+      "role": "tool",
+      "text": "$ ls -la /path/to/project/dir19\ntotal 19\nyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "created_at": "2026-10-27T10:02:21+08:00",
+      "kind": "tool_result"
+    },
+    {
+      "role": "assistant",
+      "text": "不行，换个方向",
+      "created_at": "2026-10-27T10:02:22+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "替换后的文本还要过一遍长度截断，顺序不能反。",
+      "created_at": "2026-10-27T10:02:23+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "模型给的 noise_report 不可信，管道要拿真实统计覆盖它。",
+      "created_at": "2026-10-27T10:02:24+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "模型给的 noise_report 不可信，管道要拿真实统计覆盖它。",
+      "created_at": "2026-10-27T10:02:25+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "This is the system prompt. 你是执行助手，批次 0。",
+      "created_at": "2026-10-27T10:02:26+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "{\"tool\": \"shell\", \"command\": [\"ls\", \"-la\", \"/path/to/project/dir20\"], \"timeout\": 30}",
+      "created_at": "2026-10-27T10:02:27+08:00",
+      "kind": "tool_call"
+    },
+    {
+      "role": "tool",
+      "text": "$ ls -la /path/to/project/dir20\ntotal 20\nyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "created_at": "2026-10-27T10:02:28+08:00",
+      "kind": "tool_result"
+    },
+    {
+      "role": "assistant",
+      "text": "统计口径要能对上：丢弃数加保留数必须等于输入数，不能有漏网的。",
+      "created_at": "2026-10-27T10:02:29+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "覆盖而不是拒绝，是因为统计值是管道产出，模型没有能力知道真实值。",
+      "created_at": "2026-10-27T10:02:30+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "This is the system prompt. 你是执行助手，批次 1。",
+      "created_at": "2026-10-27T10:02:31+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "{\"tool\": \"shell\", \"command\": [\"ls\", \"-la\", \"/path/to/project/dir21\"], \"timeout\": 30}",
+      "created_at": "2026-10-27T10:02:32+08:00",
+      "kind": "tool_call"
+    },
+    {
+      "role": "tool",
+      "text": "$ ls -la /path/to/project/dir21\ntotal 21\nyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "created_at": "2026-10-27T10:02:33+08:00",
+      "kind": "tool_result"
+    },
+    {
+      "role": "user",
+      "text": "我们的配置里 api_key=sk-abcdefghijklmnop1234，先记下来，别写进笔记。",
+      "created_at": "2026-10-27T10:02:34+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "把 access_token=abcd1234efgh5678 也替换掉，这类前缀最容易漏。",
+      "created_at": "2026-10-27T10:02:35+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "把 access_token=abcd1234efgh5678 也替换掉，这类前缀最容易漏。",
+      "created_at": "2026-10-27T10:02:36+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "This is the system prompt. 你是执行助手，批次 2。",
+      "created_at": "2026-10-27T10:02:37+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "{\"tool\": \"shell\", \"command\": [\"ls\", \"-la\", \"/path/to/project/dir22\"], \"timeout\": 30}",
+      "created_at": "2026-10-27T10:02:38+08:00",
+      "kind": "tool_call"
+    },
+    {
+      "role": "tool",
+      "text": "$ ls -la /path/to/project/dir22\ntotal 22\nyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "created_at": "2026-10-27T10:02:39+08:00",
+      "kind": "tool_result"
+    },
+    {
+      "role": "assistant",
+      "text": "被否决方案至少一条非空，这条规则 Gate 1 已经落在协议层了。",
+      "created_at": "2026-10-27T10:02:40+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "Authorization 头和 Cookie 头整行替换，避免残留会话标识。",
+      "created_at": "2026-10-27T10:02:41+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "This is the system prompt. 你是执行助手，批次 3。",
+      "created_at": "2026-10-27T10:02:42+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "{\"tool\": \"shell\", \"command\": [\"ls\", \"-la\", \"/path/to/project/dir23\"], \"timeout\": 30}",
+      "created_at": "2026-10-27T10:02:43+08:00",
+      "kind": "tool_call"
+    },
+    {
+      "role": "tool",
+      "text": "$ ls -la /path/to/project/dir23\ntotal 23\nyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "created_at": "2026-10-27T10:02:44+08:00",
+      "kind": "tool_result"
+    },
+    {
+      "role": "user",
+      "text": "无 provider 时抛 DistillationRequired，把 staging 路径带出去。",
+      "created_at": "2026-10-27T10:02:45+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "长消息截断阈值定在四千字符，超过就加已截断标记。",
+      "created_at": "2026-10-27T10:02:46+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "This is the system prompt. 你是执行助手，批次 4。",
+      "created_at": "2026-10-27T10:02:47+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "{\"tool\": \"shell\", \"command\": [\"ls\", \"-la\", \"/path/to/project/dir24\"], \"timeout\": 30}",
+      "created_at": "2026-10-27T10:02:48+08:00",
+      "kind": "tool_call"
+    },
+    {
+      "role": "tool",
+      "text": "$ ls -la /path/to/project/dir24\ntotal 24\nyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "created_at": "2026-10-27T10:02:49+08:00",
+      "kind": "tool_result"
+    },
+    {
+      "role": "assistant",
+      "text": "连续回显单独算输入噪声，非连续的重复才算知识层的重复主题。",
+      "created_at": "2026-10-27T10:02:50+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "截断只影响保留消息，和四层过滤的统计是两回事，要在文档里说清楚。",
+      "created_at": "2026-10-27T10:02:51+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "测试用的假服务器只监听本机随机端口，不碰任何真实模型服务。",
+      "created_at": "2026-10-27T10:02:52+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "无 provider 时抛 DistillationRequired，把 staging 路径带出去。",
+      "created_at": "2026-10-27T10:02:53+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "无 provider 时抛 DistillationRequired，把 staging 路径带出去。",
+      "created_at": "2026-10-27T10:02:54+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "执行层要挡住工具输出，尤其是带 Traceback 和长日志的那种。",
+      "created_at": "2026-10-27T10:02:55+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "这个异常要能被上层识别成需要人工或 Agent 介入，而不是普通错误。",
+      "created_at": "2026-10-27T10:02:56+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "私钥块要最先替换，否则里面的 base64 会被后面的规则切碎。",
+      "created_at": "2026-10-27T10:02:57+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "密码 password=Hunter2Hunter2 这种要替换，但别把整句删了。",
+      "created_at": "2026-10-27T10:02:58+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "staging 文件名一律用 state_key，原始 session_id 不能进路径。",
+      "created_at": "2026-10-27T10:02:59+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "替换后句子的语义还在，读的人能知道这里原本有个口令。",
+      "created_at": "2026-10-27T10:03:00+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "Authorization 头和 Cookie 头整行替换，避免残留会话标识。",
+      "created_at": "2026-10-27T10:03:01+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "工具调用的 JSON 参数也要按执行噪声处理，不进蒸馏输入。",
+      "created_at": "2026-10-27T10:03:02+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "工具调用的 JSON 参数也要按执行噪声处理，不进蒸馏输入。",
+      "created_at": "2026-10-27T10:03:03+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "工具输出超过六百字符且带命令行提示符的，直接判成执行噪声。",
+      "created_at": "2026-10-27T10:03:04+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "空的助手回复和纯确认语都算输入噪声，不要留在样本里。",
+      "created_at": "2026-10-27T10:03:05+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "连续回显单独算输入噪声，非连续的重复才算知识层的重复主题。",
+      "created_at": "2026-10-27T10:03:06+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "这两类分开统计，是为了让报告能看出来噪声出现在哪个环节。",
+      "created_at": "2026-10-27T10:03:07+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "这两类分开统计，是为了让报告能看出来噪声出现在哪个环节。",
+      "created_at": "2026-10-27T10:03:08+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "如果一条消息既重复又是死路，按优先级先记重复，避免重复计数。",
+      "created_at": "2026-10-27T10:03:09+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "优先级顺序写进文档：输入、执行、重复、死路，最后才是保留。",
+      "created_at": "2026-10-27T10:03:10+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "私钥样本用 PEM 格式，测试里只放结构，不放真实密钥。",
+      "created_at": "2026-10-27T10:03:11+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "模型返回带 json 围栏的话要能剥掉，但剥不掉就必须失败。",
+      "created_at": "2026-10-27T10:03:12+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "模型返回带 json 围栏的话要能剥掉，但剥不掉就必须失败。",
+      "created_at": "2026-10-27T10:03:13+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "网络超时按调用失败处理，超时阈值做成常量方便测试调小。",
+      "created_at": "2026-10-27T10:03:14+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "测试用的假服务器只监听本机随机端口，不碰任何真实模型服务。",
+      "created_at": "2026-10-27T10:03:15+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "假服务器要把请求体记下来，用来断言密钥没被送出去。",
+      "created_at": "2026-10-27T10:03:16+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "cookie: session=demo-session-value-1234 这行也要替换。",
+      "created_at": "2026-10-27T10:03:17+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "assistant",
+      "text": "替换后的文本还要过一遍长度截断，顺序不能反。",
+      "created_at": "2026-10-27T10:03:18+08:00",
+      "kind": "message"
+    },
+    {
+      "role": "user",
+      "text": "最后把统计写进笔记的降噪统计一节，七个数字一个都不能少。",
+      "created_at": "2026-10-27T10:03:19+08:00",
+      "kind": "message"
+    }
+  ],
+  "metadata": {
+    "fixture": true,
+    "synthetic": true
+  }
+}
