@@ -47,7 +47,8 @@ metadata:
 1. `doctor` 读环境，确认 vault、归档目录、状态目录可用；已有配置时不要再 `init`。
 2. 用 `adapters` 把来源会话标准化为 `NormalizedSession`（字段见
    `references/output-schema.md`）。
-3. 按蒸馏协议产出 `DistilledNote` JSON：每个决策必须带理由，至少写清一个被否决方案。
+3. 按蒸馏协议产出 `DistilledNote` JSON：每个决策必须带理由，**所有决策汇总后至少写一条
+   被否决方案**（`rejected` 全空会被校验直接拒绝）。
 4. 交给写入端（后续版本）落盘；当前版本只做协议校验。
 
 ## CLI 入口
@@ -63,10 +64,12 @@ python scripts/cli.py doctor --vault /path/to/vault
 
 ## 安全边界
 
+- **只写真 vault**：`init` 在任何落盘前校验 `.obsidian`；普通目录直接拒绝，磁盘零写入。
 - **不写原文**：主笔记只允许短证据引用和来源指针，禁止整段复制对话。
 - **不覆盖用户笔记**：同名笔记归属不明时只生成 `.pending.md`。
 - **不删除**：任何命令都不删除 Markdown；过期只做检索端过滤。
 - **不出 vault**：所有写入限制在 vault 与归档子目录内，路径逃逸一律失败关闭。
+- **session_id 不进路径**：幂等键统一用 `sha256(source + ":" + session_id)`。
 - **不存凭据**：API Key 只从环境变量读取，不落盘；敏感值一律替换为 `[已脱敏]`。
 - **失败关闭**：缺依赖、缺字段、来源格式不认识时报错退出，不降级为「原文照抄」。
 

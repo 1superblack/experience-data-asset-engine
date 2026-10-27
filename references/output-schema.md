@@ -34,7 +34,7 @@
 |---|---|---|---|
 | `schema_version` | int | 是 | 必须等于 `1` |
 | `source` | string | 是 | 来源标识，非空。已知值：`codex`、`chatgpt`、`claude`、`workbuddy`、`manual` |
-| `session_id` | string | 是 | 来源内的唯一会话 ID，幂等键的一半 |
+| `session_id` | string | 是 | 来源内的唯一会话 ID，**逻辑标识，不是路径**。非空、<= 200 字符、不含控制字符、不含 `/` 或 `\`、不是 `.`/`..`、不是绝对路径。文件名一律用 `sha256(source + ":" + session_id)` |
 | `title` | string | 是 | 会话标题，非空 |
 | `created_at` | string | 是 | ISO 8601，带时区更好，允许无时区 |
 | `updated_at` | string | 是 | ISO 8601 |
@@ -42,6 +42,17 @@
 | `metadata` | object | 否 | 适配器附加信息（工具调用计数、被忽略记录数等） |
 | `model` | string \| null | 否 | 会话使用的模型 |
 | `cwd` | string \| null | 否 | 会话工作目录。**只是记录，不用于任何读写决策** |
+
+### session_id 与幂等键
+
+`session_id` 只做标识，**永远不直接拼进路径**。写盘时统一用：
+
+```python
+state_key = sha256(f"{source}:{session_id}").hexdigest()   # 64 位十六进制
+```
+
+`NormalizedSession.state_key` 就是这个值。这样 `../../outside` 这类 ID 在协议层就被拒绝，
+即便被放过，落盘时也只会得到一个安全的十六进制文件名。
 
 ### Message
 
@@ -91,12 +102,12 @@
 | 字段 | 类型 | 必填 | 规则 |
 |---|---|---|---|
 | `schema_version` | int | 否 | 缺省等于 `1`；给了就必须等于 `1` |
-| `title` | string | 是 | 会变成文件名：不能含尖括号、冒号、引号、斜杠、反斜杠、问号、星号、竖线；不能以 `.` 开头；不能是 Windows 保留名（`CON`、`PRN`、`AUX`、`NUL`、`COM1-9`、`LPT1-9`）；长度 <= 120；首尾无空白 |
-| `project` | string | 是 | 项目名，决定归档子目录 |
+| `title` | string | 是 | 会变成文件名：不能含尖括号、冒号、引号、斜杠、反斜杠、问号、星号、竖线；不能含 C0 控制字符（换行、制表符、NUL 等）；不能以 `.` 开头；不能以空格或点结尾；不能是 Windows 保留名（`CON`、`PRN`、`AUX`、`NUL`、`COM1-9`、`LPT1-9`）；长度 <= 120；首尾无空白 |
+| `project` | string | 是 | 会变成归档**目录名**，只允许单级目录名：不能含 `/` `\`、不是绝对路径、不是 `.`/`..`、不以 `.` 开头、不含 `<>:"\|?*`、不以空格或点结尾、不是 Windows 保留名、不含控制字符、长度 <= 80。中文、空格、数字与常规标点允许 |
 | `summary` | string | 是 | 一句话结论 |
 | `background` | string | 是 | 目标与背景，写「为什么要做」 |
 | `diagnosis` | string[] | 是 | 诊断事实，只写查明的东西，不写推测；可空数组 |
-| `decisions` | object[] | 是 | **不能为空**。每项 `decision` + `reason` 都不能为空，`rejected` 可选 |
+| `decisions` | object[] | 是 | **不能为空**。每项 `decision` + `reason` 都不能为空；**所有 decisions 汇总后至少要有一条非空 `rejected`** |
 | `evidence` | string[] | 是 | 可复核的证据或短引用，**不允许整段粘贴对话** |
 | `reusable` | string[] | 是 | 可复用经验 |
 | `risks` | string[] | 是 | 风险；可空数组 |
@@ -124,6 +135,16 @@
 
 只写摘要的产物不是蒸馏结果，是摘要。摘要在几周后无法回答「当时为什么不选另一个方案」，
 而这正是知识库要解决的问题。校验层因此把 `decisions` 设为硬性条件。
+
+### 为什么必须至少写一条被否决方案
+
+`rejected` 不是可选装饰。记录「本来还能怎么做、为什么没这么做」，是知识笔记与会议纪要的
+分界线：它保存的是判断边界，而不是结论本身。因此校验规则是：
+
+> 所有 `decisions` 汇总后，至少要有 **一条** 非空 `rejected`，否则整份笔记被判为不合格。
+
+单个决策可以没有 `rejected`（有些小步决策确实没有备选），但整份笔记一条都没有，说明蒸馏端
+没有真的还原当时的取舍过程。这条规则是硬性的，不允许用空数组绕过。
 
 `diagnosis` / `evidence` / `reusable` / `risks` / `todo` 允许空数组，但渲染时章节标题
 必须存在，空的写「无」。允许为空是因为「这次没有风险」「没有待办」是合法结论。
@@ -153,7 +174,10 @@
 - 必填字段缺失、类型不对、空字符串。
 - `role` / `kind` / `status` / `content_volatility` 不在枚举内。
 - 时间戳不是 ISO 8601、`review_after` 不是 `YYYY-MM-DD`。
-- `title` 会生成非法或隐藏文件名。
+- `session_id` 含路径分隔符、控制字符、`.`/`..`、绝对路径、超长或为空。
+- `project` 含路径分隔符、控制字符、隐藏名、保留名、非法字符、以空格或点结尾、超长或为空。
+- `title` 含控制字符（换行/制表符/NUL）、非法字符、隐藏名、保留名、以空格或点结尾、超长。
+- 所有 `decisions` 的 `rejected` 都为空。
 - `noise_report` 缺计数器、有负数、`kept_messages > input_messages`。
 
 ## 5. 版本策略

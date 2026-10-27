@@ -109,6 +109,26 @@ def ensure_inside_vault(base: Path, target: Path) -> Path:
     raise ConfigError(f"拒绝访问 vault 之外的路径（outside vault）: {target}")
 
 
+def has_obsidian_dir(vault: Path) -> bool:
+    return (Path(vault) / ".obsidian").is_dir()
+
+
+def require_obsidian_vault(vault: Path) -> Path:
+    """确认目标确实是 Obsidian vault。
+
+    必须在任何 mkdir / 配置写入之前调用：普通目录一律拒绝，磁盘上不留任何痕迹。
+    """
+    resolved = Path(vault).expanduser().resolve()
+    if not resolved.is_dir():
+        raise ConfigError(f"vault 目录不存在或不是目录: {resolved}")
+    if not has_obsidian_dir(resolved):
+        raise ConfigError(
+            f"目标目录不是 Obsidian vault（缺少 .obsidian 目录）: {resolved}；"
+            "init 不会在普通目录创建任何文件"
+        )
+    return resolved
+
+
 def _archive_dir_from_rel(vault: Path, archive_rel: str) -> Path:
     raw = (archive_rel or "").strip()
     if not raw:
@@ -199,18 +219,19 @@ def _probe_writable(directory: Path) -> str | None:
 
 
 def init_config(vault: Path, archive_rel: str = DEFAULT_ARCHIVE_REL) -> AppConfig:
-    """初始化 vault 配置。已存在配置时不覆盖，直接返回既有配置。"""
-    vault_path = Path(vault).expanduser().resolve()
-    if not vault_path.is_dir():
-        raise ConfigError(f"vault 目录不存在或不是目录: {vault_path}")
-    archive_dir = _archive_dir_from_rel(vault_path, archive_rel)
-    state_dir = vault_path / STATE_DIRNAME
-    _ensure_dir(state_dir, "状态目录")
+    """初始化 vault 配置。已存在配置时不覆盖，直接返回既有配置。
 
+    顺序刻意固定为「校验 -> 纯路径计算 -> 判断已存在 -> 才创建目录」：
+    普通目录或非 vault 目录在第一次 mkdir 之前就会被拒绝，磁盘零写入。
+    """
+    vault_path = require_obsidian_vault(vault)
+    archive_dir = _archive_dir_from_rel(vault_path, archive_rel)  # 只做路径计算，不落盘
+    state_dir = vault_path / STATE_DIRNAME
     config_path = state_dir / CONFIG_FILENAME
     if config_path.exists():
         return load_config(vault_path)
 
+    _ensure_dir(state_dir, "状态目录")
     _ensure_dir(archive_dir, "归档目录")
     payload: dict[str, Any] = {
         "schema_version": CONFIG_SCHEMA_VERSION,
@@ -371,7 +392,7 @@ def _diag_vault(config: AppConfig) -> list[Diagnostic]:
         )
         return diagnostics
 
-    if (config.vault / ".obsidian").is_dir():
+    if has_obsidian_dir(config.vault):
         diagnostics.append(Diagnostic("vault.obsidian", "ok", "检测到 .obsidian 目录"))
     else:
         diagnostics.append(
@@ -419,10 +440,48 @@ def _diag_archive(config: AppConfig) -> list[Diagnostic]:
                 f"归档目录还不存在，首次归档时创建: {config.archive_rel}",
             )
         )
-        diagnostics.append(
-            Diagnostic("archive.writable", "ok", "父目录可写，归档时会自动创建目录")
-        )
+        diagnostics.append(_diag_archive_writable_without_dir(config.archive_dir))
     return diagnostics
+
+
+def nearest_existing_parent(target: Path) -> Path | None:
+    """向上找到最近一个真实存在的父路径（用于在目标尚不存在时验证可写性）。"""
+    current = Path(target).parent
+    while True:
+        if current.exists():
+            return current
+        if current.parent == current:
+            return None
+        current = current.parent
+
+
+def _diag_archive_writable_without_dir(archive_dir: Path) -> Diagnostic:
+    """归档目录不存在时的可写性判断：绝不直接报 ok。"""
+    parent = nearest_existing_parent(archive_dir)
+    if parent is None:
+        return Diagnostic(
+            "archive.writable",
+            "error",
+            "归档目录不存在，且找不到任何存在的父目录，无法验证可写性",
+        )
+    if not parent.is_dir():
+        return Diagnostic(
+            "archive.writable",
+            "error",
+            f"归档目录不存在，最近的父路径不是目录，无法创建: {parent}",
+        )
+    failure = _probe_writable(parent)
+    if failure is not None:
+        return Diagnostic(
+            "archive.writable",
+            "error",
+            f"归档目录不存在，最近的父目录不可写: {parent}（{failure}）",
+        )
+    return Diagnostic(
+        "archive.writable",
+        "warn",
+        f"归档目录不存在；最近的父目录可写，首次归档时创建: {parent}",
+    )
 
 
 def _diag_state(config: AppConfig) -> Diagnostic:

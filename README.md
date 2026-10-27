@@ -30,7 +30,8 @@ python -m pip install -e ".[dev,codex]"
 ## 快速开始
 
 ```bash
-# 1. 指向你的 vault（只写配置，不动任何笔记）
+# 1. 指向你的 vault（目标必须是真正的 Obsidian vault：存在 .obsidian 目录；
+#    普通目录会被拒绝，且不在磁盘上留下任何文件）
 python scripts/cli.py init --vault /path/to/vault --archive-dir 04-对话存档
 
 # 2. 自检：vault、归档目录、状态目录、Python 版本、可选依赖
@@ -76,7 +77,11 @@ python scripts/cli.py --version
 两份 JSON 协议见 [`references/output-schema.md`](references/output-schema.md)：
 
 - `NormalizedSession`：来源无关的会话中间格式（Codex、手动导出都先落到这里）。
-- `DistilledNote`：笔记的唯一合法输入，缺 `decisions` 直接拒绝，不允许只写摘要。
+  `session_id` 只做逻辑标识，落盘时用 `sha256(source + ":" + session_id)` 当文件名。
+- `DistilledNote`：笔记的唯一合法输入，缺 `decisions` 直接拒绝，不允许只写摘要；
+  所有决策汇总后必须至少有一条非空 `rejected`（被否决方案）。
+  `title` 会变成文件名、`project` 会变成目录名，两者都按「单级安全名字」校验，
+  控制字符、路径分隔符、隐藏名、Windows 保留名一律拒绝。
 
 配置字段、环境变量与诊断码见 [`references/config.md`](references/config.md)。
 

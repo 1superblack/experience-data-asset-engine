@@ -225,6 +225,78 @@ def test_doctor_warns_when_archive_dir_missing(tmp_path):
     assert item.level == "warn"
 
 
+def snapshot_tree(root: Path) -> dict[str, str | None]:
+    """记录目录树：相对路径 -> 内容（目录为 None）。用于证明零写入。"""
+    result: dict[str, str | None] = {}
+    for path in sorted(Path(root).rglob("*")):
+        rel = path.relative_to(root).as_posix()
+        result[rel] = None if path.is_dir() else path.read_text(encoding="utf-8", errors="replace")
+    return result
+
+
+def test_init_rejects_plain_directory_without_side_effects(tmp_path):
+    plain = tmp_path / "plain"
+    (plain / "子目录").mkdir(parents=True)
+    (plain / "note.md").write_text("handwritten", encoding="utf-8")
+    before = snapshot_tree(plain)
+
+    with pytest.raises(ConfigError, match="Obsidian"):
+        init_config(plain)
+
+    assert snapshot_tree(plain) == before
+    assert not (plain / STATE_DIRNAME).exists()
+    assert not (plain / DEFAULT_ARCHIVE_REL).exists()
+
+
+def test_init_rejects_plain_directory_even_with_custom_archive_dir(tmp_path):
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    with pytest.raises(ConfigError, match="Obsidian"):
+        init_config(plain, archive_rel="99-其他")
+    assert list(plain.iterdir()) == []
+
+
+def test_cli_init_rejects_plain_directory_without_writing(tmp_path, capsys):
+    from obsidian_knowledge_distiller.cli import main
+
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    assert main(["init", "--vault", str(plain)]) == 1
+    assert "Obsidian" in capsys.readouterr().err
+    assert list(plain.iterdir()) == []
+
+
+def test_doctor_warns_when_archive_dir_missing_but_parent_writable(tmp_path):
+    config = make_config(tmp_path, archive_exists=False)
+    item = by_code(doctor(config), "archive.writable")
+    assert item.level == "warn", "归档目录不存在时不得报 ok（假绿灯）"
+    assert "父目录" in item.message
+
+
+def test_doctor_errors_when_archive_parent_is_a_file(tmp_path):
+    vault = tmp_path / "vault"
+    (vault / ".obsidian").mkdir(parents=True)
+    state_dir = vault / STATE_DIRNAME
+    state_dir.mkdir()
+    blocker = vault / "blocked"
+    blocker.write_text("i am a file", encoding="utf-8")
+    config = AppConfig(
+        vault=vault.resolve(),
+        archive_dir=(blocker / DEFAULT_ARCHIVE_REL).resolve(),
+        state_dir=state_dir.resolve(),
+    )
+    item = by_code(doctor(config), "archive.writable")
+    assert item.level == "error"
+    assert "父" in item.message
+
+
+def test_doctor_errors_when_parent_probe_fails(tmp_path, monkeypatch):
+    config = make_config(tmp_path, archive_exists=False)
+    monkeypatch.setattr(config_module, "_probe_writable", lambda directory: "permission denied")
+    item = by_code(doctor(config), "archive.writable")
+    assert item.level == "error"
+
+
 def test_doctor_errors_when_archive_path_is_a_file(tmp_path):
     config = make_config(tmp_path, archive_exists=False)
     config.archive_dir.write_text("i am a file", encoding="utf-8")

@@ -13,9 +13,12 @@
 
 from __future__ import annotations
 
+import hashlib
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import date, datetime
+from pathlib import Path
 from typing import Any
 
 from .errors import SchemaError
@@ -47,7 +50,13 @@ NOISE_COUNTERS = (
 )
 
 MAX_TITLE_LENGTH = 120
-_UNSAFE_TITLE_CHARS = set('<>:"/\\|?*')
+MAX_PROJECT_LENGTH = 80
+MAX_SESSION_ID_LENGTH = 200
+
+# C0 控制字符（含换行、制表符、NUL）与 DEL
+CONTROL_CHARS = frozenset(chr(code) for code in range(0x20)) | {chr(0x7F)}
+# 跨平台文件名非法字符
+UNSAFE_NAME_CHARS = set('<>:"/\\|?*')
 _WINDOWS_RESERVED = {
     "CON",
     "PRN",
@@ -56,6 +65,56 @@ _WINDOWS_RESERVED = {
     *(f"COM{index}" for index in range(1, 10)),
     *(f"LPT{index}" for index in range(1, 10)),
 }
+_DRIVE_PREFIX = re.compile(r"^[A-Za-z]:")
+
+
+def has_control_chars(value: str) -> bool:
+    return any(char in CONTROL_CHARS for char in value)
+
+
+def looks_absolute(value: str) -> bool:
+    """跨平台判断「看起来像绝对路径」。
+
+    注意 Windows 上 ``Path('/abs').is_absolute()`` 为 False（缺盘符），
+    所以必须额外判断前导分隔符。
+    """
+    if value.startswith(("/", "\\")):
+        return True
+    if _DRIVE_PREFIX.match(value):
+        return True
+    return Path(value).is_absolute()
+
+
+def validate_session_id(value: Any) -> str:
+    """session_id 是逻辑标识，不是路径组件。
+
+    文件名一律用 ``state_key()`` 的哈希，这里只保证标识本身不含任何路径语义。
+    """
+    if not isinstance(value, str):
+        raise SchemaError("session_id 必须是字符串")
+    stripped = value.strip()
+    if not stripped:
+        raise SchemaError("session_id 不能为空")
+    if len(stripped) > MAX_SESSION_ID_LENGTH:
+        raise SchemaError(f"session_id 长度不能超过 {MAX_SESSION_ID_LENGTH} 个字符")
+    if has_control_chars(stripped):
+        raise SchemaError("session_id 不能包含控制字符（含换行、制表符、NUL）")
+    if "/" in stripped or "\\" in stripped:
+        raise SchemaError("session_id 不能包含路径分隔符（/ 或 \\）")
+    if stripped in {".", ".."}:
+        raise SchemaError("session_id 不能是 . 或 ..")
+    if looks_absolute(stripped):
+        raise SchemaError("session_id 不能是绝对路径")
+    return stripped
+
+
+def state_key(source: str, session_id: str) -> str:
+    """逻辑幂等键的安全文件名形式：``sha256(source + ":" + session_id)``。
+
+    返回 64 位十六进制串，不含分隔符、点号或任何用户可控字符，可直接作为
+    staging 文件名与 state.json 的键。
+    """
+    return hashlib.sha256(f"{source}:{session_id}".encode("utf-8")).hexdigest()
 
 
 def parse_iso_datetime(value: str, field_name: str = "时间") -> datetime:
@@ -198,6 +257,22 @@ class NormalizedSession:
     model: str | None = None
     cwd: str | None = None
 
+    def __post_init__(self) -> None:
+        issues: list[str] = []
+        if self.schema_version != SCHEMA_VERSION:
+            issues.append(f"schema_version 必须是 {SCHEMA_VERSION}，收到 {self.schema_version!r}")
+        for name in ("source", "title", "created_at", "updated_at"):
+            value = getattr(self, name)
+            if not isinstance(value, str) or not value.strip():
+                issues.append(f"{name} 不能为空")
+        _raise_issues("标准化会话不符合协议", issues)
+        validate_session_id(self.session_id)
+
+    @property
+    def state_key(self) -> str:
+        """幂等键的安全文件名形式，见 ``state_key()``。"""
+        return state_key(self.source, self.session_id)
+
     @classmethod
     def from_dict(cls, data: Any) -> "NormalizedSession":
         payload = _require_object(data, "标准化会话")
@@ -209,6 +284,11 @@ class NormalizedSession:
 
         source = _text_field(payload, "source", issues)
         session_id = _text_field(payload, "session_id", issues)
+        if session_id is not None:
+            try:
+                session_id = validate_session_id(session_id)
+            except SchemaError as exc:
+                issues.append(str(exc))
         title = _text_field(payload, "title", issues)
         model = _text_field(payload, "model", issues, required=False)
         cwd = _text_field(payload, "cwd", issues, required=False)
@@ -372,18 +452,66 @@ def _validate_title(value: Any, issues: list[str]) -> str | None:
     if value != value.strip():
         issues.append("标题 title 首尾不能有空白")
         return None
+    if has_control_chars(value):
+        issues.append("标题 title 不能包含控制字符（含换行、制表符、NUL）")
+        return None
     if len(value) > MAX_TITLE_LENGTH:
         issues.append(f"标题 title 长度不能超过 {MAX_TITLE_LENGTH} 个字符")
         return None
-    bad_chars = sorted({char for char in value if char in _UNSAFE_TITLE_CHARS})
+    bad_chars = sorted({char for char in value if char in UNSAFE_NAME_CHARS})
     if bad_chars:
         issues.append(f"标题 title 不能包含文件名非法字符: {' '.join(bad_chars)}")
         return None
     if value.startswith("."):
         issues.append("标题 title 不能以点开头（会生成隐藏文件）")
         return None
+    if value[-1] in {" ", "."}:
+        issues.append("标题 title 不能以空格或点结尾（Windows 会静默去掉）")
+        return None
     if value.split(".")[0].upper() in _WINDOWS_RESERVED:
         issues.append(f"标题 title 不能使用 Windows 保留名: {value}")
+        return None
+    return value
+
+
+def _validate_project(value: Any, issues: list[str]) -> str | None:
+    """project 会直接成为归档目录名，因此按「单级目录名」校验。
+
+    允许中文、空格、数字与常规标点；拒绝路径语义、隐藏名、保留名与控制字符。
+    """
+    if not isinstance(value, str):
+        issues.append("项目名 project 必须是字符串")
+        return None
+    if not value or not value.strip():
+        issues.append("项目名 project 不能为空")
+        return None
+    if value != value.strip():
+        issues.append("项目名 project 首尾不能有空白")
+        return None
+    if has_control_chars(value):
+        issues.append("项目名 project 不能包含控制字符（含换行、制表符、NUL）")
+        return None
+    if len(value) > MAX_PROJECT_LENGTH:
+        issues.append(f"项目名 project 长度不能超过 {MAX_PROJECT_LENGTH} 个字符")
+        return None
+    if "/" in value or "\\" in value:
+        issues.append("项目名 project 不能包含路径分隔符（/ 或 \\）")
+        return None
+    if looks_absolute(value):
+        issues.append("项目名 project 不能是绝对路径")
+        return None
+    if value.startswith("."):
+        issues.append("项目名 project 不能是 . 或 ..，也不能以点开头（会生成隐藏目录）")
+        return None
+    bad_chars = sorted({char for char in value if char in UNSAFE_NAME_CHARS})
+    if bad_chars:
+        issues.append(f"项目名 project 不能包含目录名非法字符: {' '.join(bad_chars)}")
+        return None
+    if value[-1] in {" ", "."}:
+        issues.append("项目名 project 不能以空格或点结尾（Windows 会静默去掉）")
+        return None
+    if value.split(".")[0].upper() in _WINDOWS_RESERVED:
+        issues.append(f"项目名 project 不能使用 Windows 保留名: {value}")
         return None
     return value
 
@@ -431,7 +559,7 @@ class DistilledNote:
             issues.append(f"schema_version 必须是 {SCHEMA_VERSION}，收到 {version!r}")
 
         title = _validate_title(payload.get("title"), issues)
-        project = _text_field(payload, "project", issues)
+        project = _validate_project(payload.get("project"), issues)
         summary = _text_field(payload, "summary", issues)
         background = _text_field(payload, "background", issues)
         diagnosis = _string_list(payload, "diagnosis", issues)
@@ -456,6 +584,13 @@ class DistilledNote:
                 except SchemaError as exc:
                     issues.append(str(exc))
             decisions = tuple(built)
+            if len(built) == len(raw_decisions) and built and not any(
+                decision.rejected for decision in built
+            ):
+                issues.append(
+                    "decisions 至少要有一条非空 rejected（被否决方案）："
+                    "只说选了什么、不说否掉了什么，无法复现当时的判断边界"
+                )
 
         noise_report: NoiseReport | None = None
         raw_noise = payload.get("noise_report")

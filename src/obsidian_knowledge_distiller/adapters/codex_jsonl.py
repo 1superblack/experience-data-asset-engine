@@ -327,7 +327,7 @@ def _build_session(
         raise SessionFormatError("缺少时间戳：无法确定会话时间范围")
 
     title = meta.get("title") if isinstance(meta.get("title"), str) else None
-    if not title:
+    if not title or not title.strip():
         first_user = next((text for role, text, _ in chosen if role == "user" and text.strip()), "")
         title = _short_title(first_user) or session_id.strip()
 
@@ -347,17 +347,20 @@ def _build_session(
         for role, text, created_at_stamp in chosen
     )
 
-    return NormalizedSession.from_dict(
-        {
-            "schema_version": 1,
-            "source": "codex",
-            "session_id": session_id.strip(),
-            "title": title.strip(),
-            "created_at": created_at,
-            "updated_at": updated_at,
-            "model": model,
-            "cwd": cwd,
-            "messages": [message.to_dict() for message in messages],
-            "metadata": metadata,
-        }
-    )
+    try:
+        return NormalizedSession.from_dict(
+            {
+                "schema_version": 1,
+                "source": "codex",
+                "session_id": session_id.strip(),
+                "title": title.strip(),
+                "created_at": created_at,
+                "updated_at": updated_at,
+                "model": model,
+                "cwd": cwd,
+                "messages": [message.to_dict() for message in messages],
+                "metadata": metadata,
+            }
+        )
+    except SchemaError as exc:
+        raise SessionFormatError(f"会话结构不符合协议: {exc}") from None

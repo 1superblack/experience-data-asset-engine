@@ -16,6 +16,7 @@ from obsidian_knowledge_distiller.models import (
     NoiseReport,
     NormalizedSession,
     parse_iso_datetime,
+    state_key,
 )
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
@@ -348,3 +349,151 @@ def test_distilled_note_rejects_empty_required_text():
 def test_distilled_note_rejects_non_mapping():
     with pytest.raises(SchemaError, match="对象"):
         DistilledNote.from_dict(["not", "a", "dict"])  # type: ignore[arg-type]
+
+
+# --- session_id 作为标识而不是路径 -------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "session_id",
+    [
+        "a/b",
+        "a\\b",
+        "../../outside",
+        "..",
+        ".",
+        "/etc/passwd",
+        "C:\\Windows\\system32",
+        "a\nb",
+        "a\tb",
+        "a\x00b",
+        "a\x1bb",
+        "",
+        "   ",
+    ],
+)
+def test_session_rejects_unsafe_session_id(session_id):
+    payload = session_payload()
+    payload["session_id"] = session_id
+    with pytest.raises(SchemaError, match="session_id"):
+        NormalizedSession.from_dict(payload)
+
+
+def test_session_accepts_opaque_session_id():
+    payload = session_payload()
+    payload["session_id"] = "01JC8ZK4T9XQ7M3V6B2N8R5D1F"
+    assert NormalizedSession.from_dict(payload).session_id == "01JC8ZK4T9XQ7M3V6B2N8R5D1F"
+
+
+def test_state_key_is_stable_and_path_safe():
+    session = load_normalized_json(FIXTURES / "session.json")
+    key = session.state_key
+    assert key == state_key("codex", "s1")
+    assert len(key) == 64
+    assert all(char in "0123456789abcdef" for char in key)
+    assert "/" not in key and "\\" not in key and ".." not in key
+    assert state_key("codex", "s1") == state_key("codex", "s1")
+    assert state_key("codex", "s1") != state_key("claude", "s1")
+
+
+def test_state_key_derives_from_source_and_session_id():
+    first = state_key("codex", "../../outside")
+    second = state_key("codex", "../../outside")
+    assert first == second
+    assert "outside" not in first
+
+
+# --- project 作为归档目录名 ---------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "project",
+    [
+        "对话蒸馏器",
+        "警备二期 项目",
+        "2026 Q1 - 项目A",
+        "项目（一期）",
+        "obsidian-vault",
+        "A.B.C",
+    ],
+)
+def test_distilled_note_accepts_safe_project(project):
+    payload = valid_note_payload()
+    payload["project"] = project
+    assert DistilledNote.from_dict(payload).project == project
+
+
+@pytest.mark.parametrize(
+    "project",
+    [
+        "..",
+        ".",
+        "../outside",
+        "a/b",
+        "a\\b",
+        "/abs",
+        "C:\\Windows",
+        ".hidden",
+        "CON",
+        "com1",
+        "trailing ",
+        "trailing.",
+        "",
+        "   ",
+        "a\nb",
+        "a\tb",
+        "a\x00b",
+        "a:b",
+        "a|b",
+        "长" * 81,
+    ],
+)
+def test_distilled_note_rejects_unsafe_project(project):
+    payload = valid_note_payload()
+    payload["project"] = project
+    with pytest.raises(SchemaError, match="project"):
+        DistilledNote.from_dict(payload)
+
+
+# --- title 的写入安全 --------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        "第一行\n第二行",
+        "制表\t符",
+        "空字符\x00",
+        "回车\r符",
+        "转义\x1b符",
+        "结尾点.",
+        "结尾空格 ",
+    ],
+)
+def test_distilled_note_rejects_control_or_trailing_title(title):
+    payload = valid_note_payload()
+    payload["title"] = title
+    with pytest.raises(SchemaError, match="标题"):
+        DistilledNote.from_dict(payload)
+
+
+# --- 被否决方案 -------------------------------------------------------------
+
+
+def test_distilled_note_rejects_when_every_rejected_is_empty():
+    payload = valid_note_payload()
+    payload["decisions"] = [
+        {"decision": "方案 A", "reason": "理由 A", "rejected": []},
+        {"decision": "方案 B", "reason": "理由 B"},
+    ]
+    with pytest.raises(SchemaError, match="rejected"):
+        DistilledNote.from_dict(payload)
+
+
+def test_distilled_note_accepts_one_non_empty_rejected():
+    payload = valid_note_payload()
+    payload["decisions"] = [
+        {"decision": "方案 A", "reason": "理由 A", "rejected": []},
+        {"decision": "方案 B", "reason": "理由 B", "rejected": ["方案 C：成本过高"]},
+    ]
+    assert DistilledNote.from_dict(payload).decisions[1].rejected == ("方案 C：成本过高",)

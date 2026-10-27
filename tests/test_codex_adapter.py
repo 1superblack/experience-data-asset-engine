@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import shutil
 from pathlib import Path
 
@@ -12,6 +13,7 @@ from obsidian_knowledge_distiller.errors import (
     OptionalDependencyError,
     SessionFormatError,
 )
+from obsidian_knowledge_distiller.models import state_key
 
 try:
     import zstandard
@@ -46,6 +48,7 @@ def test_load_codex_zst_session(tmp_path):
     assert load_codex_session(out).session_id == "019abc"
 
 
+@needs_zstd
 def test_load_codex_stored_zst_fixture():
     session = load_codex_session(ARCHIVED)
     assert session.session_id == "019abc"
@@ -93,6 +96,7 @@ def test_session_survives_roundtrip():
     assert session.to_dict()["session_id"] == "019abc"
 
 
+@needs_zstd
 def test_uppercase_zst_extension_is_recognized(tmp_path):
     target = tmp_path / "SESSION.JSONL.ZST"
     shutil.copyfile(ARCHIVED, target)
@@ -253,3 +257,42 @@ def test_unsupported_suffix_fails_closed(tmp_path):
     path.write_text("{}", encoding="utf-8")
     with pytest.raises(SessionFormatError, match="后缀"):
         load_codex_session(path)
+
+
+@pytest.mark.parametrize(
+    "session_id",
+    ["../../outside", "a/b", "a\\b", "..", "/abs", "C:\\Windows", "a\nb", "a\x00b"],
+)
+def test_unsafe_session_id_fails_closed(tmp_path, session_id):
+    path = tmp_path / "unsafe-id.jsonl"
+    path.write_text(
+        json.dumps(
+            {
+                "timestamp": "2026-10-27T02:00:00Z",
+                "type": "session_meta",
+                "payload": {"id": session_id},
+            }
+        )
+        + "\n"
+        + json.dumps(
+            {
+                "timestamp": "2026-10-27T02:00:01Z",
+                "type": "response_item",
+                "payload": {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "hi"}],
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(SessionFormatError, match="session_id"):
+        load_codex_session(path)
+
+
+def test_session_exposes_path_safe_state_key():
+    session = load_codex_session(PLAIN)
+    assert session.state_key == state_key("codex", "019abc")
+    assert "/" not in session.state_key and "\\" not in session.state_key

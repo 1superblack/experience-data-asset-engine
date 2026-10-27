@@ -60,7 +60,11 @@
 
 都找不到时报「未初始化」，提示先运行 `init`。
 
-## init 的幂等性
+## init 的前置条件与幂等性
+
+**前置条件：目标目录必须是真正的 Obsidian vault（存在 `.obsidian` 目录）。**
+校验发生在任何 `mkdir` / 配置写入之前——普通目录直接抛 `ConfigError`，磁盘上不新增状态目录、
+不新增归档目录、不新增配置文件。这样「指错目录」不会在你机器上留垃圾。
 
 - 配置已存在：**不覆盖**，直接返回既有配置，CLI 打印「配置已存在，未覆盖」。
 - 配置不存在：写入 `config.json`（临时文件 + 原子替换），创建归档目录与状态目录。
@@ -76,7 +80,17 @@
 | `vault.obsidian` | ok / error | 是否存在 `.obsidian`（判断是不是真 vault） |
 | `archive.inside_vault` | ok / error | 归档目录是否落在 vault 内 |
 | `archive.exists` | ok / warn / error | 归档目录存在 / 待创建 / 被同名文件占用 |
-| `archive.writable` | ok / error | 探针写入是否成功 |
+| `archive.writable` | ok / warn / error | 目录已存在时探针写入是否成功；**目录不存在时向上找最近的父目录验证**，父目录可写报 warn（不是 ok），父目录不是目录或不可写报 error，无法验证报 error |
+
+`archive.writable` 的判定细则（防止假绿灯）：
+
+| 情形 | 级别 | 含义 |
+|---|---|---|
+| 归档目录存在且探针写入成功 | ok | 可以直接写 |
+| 归档目录不存在，最近父目录可写 | warn | 首次归档时会创建，尚未实际验证该目录本身 |
+| 归档目录不存在，最近父路径不是目录 | error | 创建会失败 |
+| 归档目录不存在，最近父目录不可写 | error | 创建会失败 |
+| 归档目录不存在，找不到任何存在的父路径 | error | 无法验证 |
 | `state.writable` | ok / error | 状态目录是否可写（缺失视为 error，提示重新 init） |
 | `model.provider` | ok / warn | 是否配置了模型提供方 |
 | `model.credentials` | ok / warn | 配置了提供方时，`api_key_env` 指向的环境变量是否存在 |
@@ -97,6 +111,7 @@
 
 ## 安全边界
 
+- **只写真 vault**：`init` 在任何落盘动作前校验 `.obsidian`；普通目录直接拒绝，零写入。
 - 归档目录只能是 vault 内相对路径；`../x`、绝对路径、隐藏目录、vault 根目录全部拒绝。
 - 路径校验先 `resolve()` 再判断，符号链接跳出 vault 同样被拒绝。
 - 配置里没有密钥字段；`api_key()` 只读环境变量。
