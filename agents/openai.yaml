@@ -1,0 +1,4 @@
+interface:
+  display_name: "AI 对话知识蒸馏器"
+  short_description: "把 AI 对话蒸馏为可追溯、带生命周期管理的 Obsidian 知识笔记"
+  default_prompt: "使用 $ai-conversation-knowledge-distiller 把这段对话蒸馏为 Obsidian 知识笔记，保留决策与原由、被否决方案和证据。"

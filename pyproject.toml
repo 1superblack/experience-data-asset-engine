@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "obsidian-knowledge-distiller"
+version = "0.1.0"
+description = "Distill AI conversations into traceable, lifecycle-managed Obsidian notes instead of dumping chat logs."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "黑超人" }]
+keywords = ["obsidian", "knowledge-base", "ai-conversation", "distillation", "skill"]
+classifiers = [
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+]
+dependencies = []
+
+[project.optional-dependencies]
+codex = ["zstandard>=0.22"]
+dev = ["pytest>=8", "coverage[toml]>=7.4"]
+
+[project.scripts]
+obsidian-knowledge-distiller = "obsidian_knowledge_distiller.cli:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-ra"
+
+[tool.coverage.run]
+source = ["obsidian_knowledge_distiller"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
