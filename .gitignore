@@ -15,7 +15,7 @@ coverage.xml
 htmlcov/
 
 # Local runtime state (never commit a real vault config)
-.obsidian-knowledge-distiller/
+.experience-data-asset-engine/
 *.pending.md
 config.local.json
 

@@ -2,7 +2,7 @@
 
 设计要点：
 
-- 配置固定写入 ``<vault>/.obsidian-knowledge-distiller/config.json``，跟着 vault 走。
+- 配置固定写入 ``<vault>/.experience-data-asset-engine/config.json``，跟着 vault 走。
 - 配置里只存**vault 内相对路径**，不写机器绝对路径，便于 vault 搬家与同步。
 - 任何路径都必须落在 vault 内；越界一律抛 ``ConfigError``（失败关闭）。
 - 凭据只从环境变量读取，永不落盘。
@@ -25,18 +25,18 @@ from . import __version__
 from .errors import ConfigError, InputError, SchemaError
 
 DEFAULT_ARCHIVE_REL = "04-对话存档"
-STATE_DIRNAME = ".obsidian-knowledge-distiller"
+STATE_DIRNAME = ".experience-data-asset-engine"
 CONFIG_FILENAME = "config.json"
 CONFIG_SCHEMA_VERSION = 1
-DEFAULT_API_KEY_ENV = "OKD_API_KEY"
+DEFAULT_API_KEY_ENV = "EDAE_API_KEY"
 MIN_PYTHON = (3, 11)
 
-ENV_VAULT = "OKD_VAULT"
-ENV_CONFIG = "OKD_CONFIG"
-ENV_PROVIDER = "OKD_PROVIDER"
-ENV_MODEL = "OKD_MODEL"
-ENV_BASE_URL = "OKD_BASE_URL"
-ENV_API_KEY_ENV = "OKD_API_KEY_ENV"
+ENV_VAULT = "EDAE_VAULT"
+ENV_CONFIG = "EDAE_CONFIG"
+ENV_PROVIDER = "EDAE_PROVIDER"
+ENV_MODEL = "EDAE_MODEL"
+ENV_BASE_URL = "EDAE_BASE_URL"
+ENV_API_KEY_ENV = "EDAE_API_KEY_ENV"
 
 DiagnosticLevel = Literal["ok", "warn", "error"]
 
@@ -343,8 +343,8 @@ def _read_config(config_path: Path) -> AppConfig:
 def load_config(vault: Path | None = None) -> AppConfig:
     """定位并读取配置。
 
-    定位顺序：显式 ``vault`` 参数 -> ``OKD_CONFIG`` -> ``OKD_VAULT`` ->
-    从当前目录逐层向上找 ``.obsidian-knowledge-distiller/config.json``。
+    定位顺序：显式 ``vault`` 参数 -> ``EDAE_CONFIG`` -> ``EDAE_VAULT`` ->
+    从当前目录逐层向上找 ``.experience-data-asset-engine/config.json``。
     """
     return _read_config(_locate_config(vault))
 
@@ -542,7 +542,7 @@ def _diag_codex_dependency() -> Diagnostic:
             "codex.zstandard",
             "warn",
             "未安装 zstandard：读取 .jsonl.zst 会失败关闭（不会降级读原文）",
-            hint="pip install 'obsidian-knowledge-distiller[codex]'",
+            hint="pip install 'experience-data-asset-engine[codex]'",
         )
     return Diagnostic(
         "codex.zstandard",

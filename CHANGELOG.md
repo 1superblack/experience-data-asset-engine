@@ -6,12 +6,20 @@
 
 第一阶段（骨架与协议），不含实际归档写入。
 
+### 命名
+
+- 产品名统一为「数据资产引擎｜经验资产化」（品牌名：数据资产引擎）。
+- 技术标识：Skill slug 与 Python 发行包 `experience-data-asset-engine`、导入包
+  `experience_data_asset_engine`、CLI `experience-data-asset-engine`、
+  状态目录 `.experience-data-asset-engine`、环境变量前缀 `EDAE_`。
+- 原 `ai-conversation-knowledge-distiller` / `archive-to-obsidian` 标识已全部弃用。
+
 ### 新增
 
-- Skill 元数据：`SKILL.md`（slug `ai-conversation-knowledge-distiller`）、`agents/openai.yaml`。
+- Skill 元数据：`SKILL.md`（slug `experience-data-asset-engine`）、`agents/openai.yaml`。
 - CLI 骨架：`init`、`doctor`，以及 `archive` / `validate` / `status` / `recheck` /
   `uninstall` 的占位入口（返回退出码 4，明确失败关闭）。
-- 可移植 vault 配置：配置写入 `<vault>/.obsidian-knowledge-distiller/config.json`，
+- 可移植 vault 配置：配置写入 `<vault>/.experience-data-asset-engine/config.json`，
   幂等且不覆盖已有配置；归档目录只允许 vault 内相对路径。
 - `doctor` 诊断：Python 版本、vault 与 `.obsidian`、归档目录存在性与可写性、状态目录可写性、
   模型配置状态、可选依赖 `zstandard`。

@@ -1,14 +1,16 @@
 ---
-name: ai-conversation-knowledge-distiller
-description: 把 AI 对话与会话记录蒸馏为可追溯、带时间与状态管理的 Obsidian 知识笔记，而不是把聊天原文搬进知识库。当用户要求归档对话、把聊天沉淀成知识库、整理会话记录、生成可复用经验笔记，或需要按状态过滤（排除已过时、已被取代）检索笔记时使用。默认不写入对话原文，不删除、不覆盖用户已有笔记。
+name: experience-data-asset-engine
+description: 把 AI 对话与项目过程转化为可复用、可追溯、可治理的经验数据资产，产出带时间与状态管理的 Obsidian 知识笔记。当用户要求归档对话、沉淀项目经验、整理会话记录、生成可复用经验笔记，或按状态过滤（排除已过时、已被取代）检索笔记时使用。默认不写入对话原文，不删除、不覆盖用户已有笔记。
 license: MIT
 metadata:
-  slug: ai-conversation-knowledge-distiller
-  displayName: 对话知识蒸馏器
+  slug: experience-data-asset-engine
+  displayName: 数据资产引擎
   version: 0.1.0
 ---
 
-# AI 对话知识蒸馏器
+# 数据资产引擎｜经验资产化
+
+> 把 AI 对话与项目过程转化为可复用、可追溯、可治理的经验数据资产。
 
 ## 目标
 
@@ -23,7 +25,7 @@ metadata:
 
 以下情况不要使用：
 
-- 用户只是要导出聊天原文（那是导出工具，不是蒸馏器）。
+- 用户只是要导出聊天原文（那是导出工具，不是资产化工具）。
 - 用户要求自动解密客户端数据库、抓取聊天窗口或搬运凭据。
 - 用户要求删除、移动或批量改写已有笔记。
 
@@ -60,7 +62,7 @@ python scripts/cli.py doctor
 python scripts/cli.py doctor --vault /path/to/vault
 ```
 
-安装后也可用控制台入口 `obsidian-knowledge-distiller`。
+安装后也可用控制台入口 `experience-data-asset-engine`。
 
 ## 安全边界
 

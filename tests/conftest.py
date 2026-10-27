@@ -19,7 +19,7 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 
-_ENV_PREFIX = "OKD_"
+_ENV_PREFIX = "EDAE_"
 
 
 @pytest.fixture(autouse=True)

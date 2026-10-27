@@ -1,4 +1,6 @@
-# Obsidian 对话知识蒸馏器
+# 数据资产引擎｜经验资产化
+
+> 把 AI 对话与项目过程转化为可复用、可追溯、可治理的经验数据资产。
 
 把 AI 对话蒸馏成**可复用、可追溯、会自动老化管理**的 Obsidian 知识笔记，而不是把聊天原文
 搬进知识库。
@@ -42,7 +44,7 @@ python scripts/cli.py --version
 ```
 
 `init` 幂等：配置文件已存在时直接返回既有配置，**不覆盖**。配置固定写入
-`<vault>/.obsidian-knowledge-distiller/config.json`，跟着 vault 走，不含绝对机器路径，
+`<vault>/.experience-data-asset-engine/config.json`，跟着 vault 走，不含绝对机器路径，
 不含任何密钥。
 
 ## CLI 契约
@@ -104,7 +106,7 @@ Codex `.jsonl` / `.jsonl.zst` 输入适配。降噪、蒸馏、写入、检索�
 python scripts/cli.py uninstall
 ```
 
-只删除 `<vault>/.obsidian-knowledge-distiller/`（配置、状态、审计、staging），不动任何
+只删除 `<vault>/.experience-data-asset-engine/`（配置、状态、审计、staging），不动任何
 Markdown 笔记。
 
 ## 许可证

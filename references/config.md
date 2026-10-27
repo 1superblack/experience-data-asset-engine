@@ -3,13 +3,13 @@
 ## 配置写在哪
 
 ```text
-<vault>/.obsidian-knowledge-distiller/config.json
+<vault>/.experience-data-asset-engine/config.json
 ```
 
 固定位置，跟着 vault 走。目的有三个：vault 搬家后配置仍然有效；配置与笔记同源便于备份；
 不含任何机器绝对路径，复制到另一台机器不会写出奇怪路径。
 
-`.obsidian-knowledge-distiller/` 同时存放运行期状态：
+`.experience-data-asset-engine/` 同时存放运行期状态：
 
 | 子路径 | 用途 | 本版本是否使用 |
 |---|---|---|
@@ -29,7 +29,7 @@
 | `provider` | string \| null | OpenAI-compatible 提供方标识。`null` 表示不直连模型。 |
 | `model` | string \| null | 模型名。 |
 | `base_url` | string \| null | 模型服务地址，如 `https://api.example.com/v1`。 |
-| `api_key_env` | string | 存**环境变量名**，不是密钥本身。默认 `OKD_API_KEY`。 |
+| `api_key_env` | string | 存**环境变量名**，不是密钥本身。默认 `EDAE_API_KEY`。 |
 | `created_at` | string \| null | 初始化时间（ISO 8601），仅作记录。 |
 | `tool_version` | string \| null | 写入配置时的工具版本，仅作记录。 |
 
@@ -41,22 +41,22 @@
 
 | 变量 | 作用 |
 |---|---|
-| `OKD_VAULT` | 指定 vault 根目录 |
-| `OKD_CONFIG` | 直接指定配置文件路径（必须仍位于 `<vault>/.obsidian-knowledge-distiller/`） |
-| `OKD_PROVIDER` | 覆盖 `provider` |
-| `OKD_MODEL` | 覆盖 `model` |
-| `OKD_BASE_URL` | 覆盖 `base_url` |
-| `OKD_API_KEY_ENV` | 覆盖 `api_key_env` |
-| `OKD_API_KEY` | **凭据本身**，只读不写，永不落盘、永不进日志 |
+| `EDAE_VAULT` | 指定 vault 根目录 |
+| `EDAE_CONFIG` | 直接指定配置文件路径（必须仍位于 `<vault>/.experience-data-asset-engine/`） |
+| `EDAE_PROVIDER` | 覆盖 `provider` |
+| `EDAE_MODEL` | 覆盖 `model` |
+| `EDAE_BASE_URL` | 覆盖 `base_url` |
+| `EDAE_API_KEY_ENV` | 覆盖 `api_key_env` |
+| `EDAE_API_KEY` | **凭据本身**，只读不写，永不落盘、永不进日志 |
 
 ## 定位顺序
 
 `load_config()` 依次尝试：
 
 1. 显式传入的 vault 路径（`--vault`）。
-2. `OKD_CONFIG` 指向的配置文件。
-3. `OKD_VAULT` 指向的 vault。
-4. 从当前目录逐层向上查找 `.obsidian-knowledge-distiller/config.json`。
+2. `EDAE_CONFIG` 指向的配置文件。
+3. `EDAE_VAULT` 指向的 vault。
+4. 从当前目录逐层向上查找 `.experience-data-asset-engine/config.json`。
 
 都找不到时报「未初始化」，提示先运行 `init`。
 

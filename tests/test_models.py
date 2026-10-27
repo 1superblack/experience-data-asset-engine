@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from obsidian_knowledge_distiller.adapters.normalized_json import load_normalized_json
-from obsidian_knowledge_distiller.errors import InputError, SchemaError
-from obsidian_knowledge_distiller.models import (
+from experience_data_asset_engine.adapters.normalized_json import load_normalized_json
+from experience_data_asset_engine.errors import InputError, SchemaError
+from experience_data_asset_engine.models import (
     NOISE_COUNTERS,
     STATUS_VALUES,
     VOLATILITY_VALUES,
@@ -409,7 +409,7 @@ def test_state_key_derives_from_source_and_session_id():
 @pytest.mark.parametrize(
     "project",
     [
-        "对话蒸馏器",
+        "数据资产引擎",
         "警备二期 项目",
         "2026 Q1 - 项目A",
         "项目（一期）",

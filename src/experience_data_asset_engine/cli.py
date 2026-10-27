@@ -27,7 +27,7 @@ from .config import (
 )
 from .errors import DistillerError
 
-PROG = "obsidian-knowledge-distiller"
+PROG = "experience-data-asset-engine"
 
 EXIT_OK = 0
 EXIT_FAILURE = 1

@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from obsidian_knowledge_distiller import config as config_module
-from obsidian_knowledge_distiller.config import (
+from experience_data_asset_engine import config as config_module
+from experience_data_asset_engine.config import (
     DEFAULT_ARCHIVE_REL,
     STATE_DIRNAME,
     AppConfig,
@@ -50,7 +50,7 @@ def test_init_config_creates_vault_state(tmp_path):
     config = init_config(vault)
     assert config.vault == vault.resolve()
     assert config.archive_dir == (vault / "04-对话存档").resolve()
-    assert (vault / ".obsidian-knowledge-distiller" / "config.json").exists()
+    assert (vault / ".experience-data-asset-engine" / "config.json").exists()
 
 
 def test_init_creates_archive_directory(sample_vault):
@@ -63,7 +63,7 @@ def test_init_does_not_overwrite_existing_config(tmp_path):
     vault = tmp_path / "vault"
     (vault / ".obsidian").mkdir(parents=True)
     init_config(vault)
-    path = vault / ".obsidian-knowledge-distiller" / "config.json"
+    path = vault / ".experience-data-asset-engine" / "config.json"
     before = path.read_text(encoding="utf-8")
     init_config(vault, archive_rel="99-其他")
     assert path.read_text(encoding="utf-8") == before
@@ -116,7 +116,7 @@ def test_init_writes_relative_archive_dir_only(sample_vault):
 
 
 def test_init_never_persists_api_key(sample_vault, monkeypatch):
-    monkeypatch.setenv("OKD_API_KEY", "sk-shouldneverbewritten")
+    monkeypatch.setenv("EDAE_API_KEY", "sk-shouldneverbewritten")
     config = init_config(sample_vault)
     assert "sk-shouldneverbewritten" not in config.config_path.read_text(encoding="utf-8")
 
@@ -132,13 +132,13 @@ def test_load_config_roundtrip(sample_vault):
 
 def test_load_config_from_env_vault(sample_vault, monkeypatch):
     created = init_config(sample_vault)
-    monkeypatch.setenv("OKD_VAULT", str(sample_vault))
+    monkeypatch.setenv("EDAE_VAULT", str(sample_vault))
     assert load_config() == created
 
 
 def test_load_config_from_env_config_path(sample_vault, monkeypatch):
     created = init_config(sample_vault)
-    monkeypatch.setenv("OKD_CONFIG", str(created.config_path))
+    monkeypatch.setenv("EDAE_CONFIG", str(created.config_path))
     assert load_config() == created
 
 
@@ -180,9 +180,9 @@ def test_load_config_rejects_broken_json(sample_vault):
 
 def test_load_config_env_overrides_model_settings(sample_vault, monkeypatch):
     init_config(sample_vault)
-    monkeypatch.setenv("OKD_PROVIDER", "openai-compatible")
-    monkeypatch.setenv("OKD_MODEL", "demo-model")
-    monkeypatch.setenv("OKD_BASE_URL", "https://example.invalid/v1")
+    monkeypatch.setenv("EDAE_PROVIDER", "openai-compatible")
+    monkeypatch.setenv("EDAE_MODEL", "demo-model")
+    monkeypatch.setenv("EDAE_BASE_URL", "https://example.invalid/v1")
     loaded = load_config(sample_vault)
     assert loaded.provider == "openai-compatible"
     assert loaded.model == "demo-model"
@@ -257,7 +257,7 @@ def test_init_rejects_plain_directory_even_with_custom_archive_dir(tmp_path):
 
 
 def test_cli_init_rejects_plain_directory_without_writing(tmp_path, capsys):
-    from obsidian_knowledge_distiller.cli import main
+    from experience_data_asset_engine.cli import main
 
     plain = tmp_path / "plain"
     plain.mkdir()
@@ -330,7 +330,7 @@ def test_doctor_warns_when_provider_has_no_credentials(tmp_path):
 
 
 def test_doctor_ok_when_provider_and_api_key_present(tmp_path, monkeypatch):
-    monkeypatch.setenv("OKD_API_KEY", "sk-test-only")
+    monkeypatch.setenv("EDAE_API_KEY", "sk-test-only")
     config = dataclasses.replace(
         make_config(tmp_path),
         provider="openai-compatible",
@@ -354,6 +354,6 @@ def test_doctor_warns_when_zstandard_missing(tmp_path, monkeypatch):
 
 
 def test_doctor_never_prints_api_key(tmp_path, monkeypatch):
-    monkeypatch.setenv("OKD_API_KEY", "sk-mustnotleak")
+    monkeypatch.setenv("EDAE_API_KEY", "sk-mustnotleak")
     diagnostics = doctor(make_config(tmp_path))
     assert all("sk-mustnotleak" not in item.message for item in diagnostics)

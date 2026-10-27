@@ -1,4 +1,4 @@
 interface:
-  display_name: "AI 对话知识蒸馏器"
-  short_description: "把 AI 对话蒸馏为可追溯、带生命周期管理的 Obsidian 知识笔记"
-  default_prompt: "使用 $ai-conversation-knowledge-distiller 把这段对话蒸馏为 Obsidian 知识笔记，保留决策与原由、被否决方案和证据。"
+  display_name: "数据资产引擎｜经验资产化"
+  short_description: "把 AI 对话与项目过程转化为可复用、可追溯、可治理的经验数据资产"
+  default_prompt: "使用 $experience-data-asset-engine 把这段对话与项目过程蒸馏为可复用的经验数据资产笔记，保留决策与原由、被否决方案和证据。"

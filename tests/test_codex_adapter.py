@@ -6,14 +6,14 @@ from pathlib import Path
 
 import pytest
 
-from obsidian_knowledge_distiller.adapters import codex_jsonl
-from obsidian_knowledge_distiller.adapters.codex_jsonl import load_codex_session
-from obsidian_knowledge_distiller.errors import (
+from experience_data_asset_engine.adapters import codex_jsonl
+from experience_data_asset_engine.adapters.codex_jsonl import load_codex_session
+from experience_data_asset_engine.errors import (
     InputError,
     OptionalDependencyError,
     SessionFormatError,
 )
-from obsidian_knowledge_distiller.models import state_key
+from experience_data_asset_engine.models import state_key
 
 try:
     import zstandard

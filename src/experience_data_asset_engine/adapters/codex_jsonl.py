@@ -122,7 +122,7 @@ def _decompress(path: Path) -> bytes:
     if zstandard is None:
         raise OptionalDependencyError(
             "读取 .jsonl.zst 需要可选依赖 zstandard；"
-            "请执行 pip install 'obsidian-knowledge-distiller[codex]'。"
+            "请执行 pip install 'experience-data-asset-engine[codex]'。"
             "不会降级为其它处理方式。"
         )
     try:

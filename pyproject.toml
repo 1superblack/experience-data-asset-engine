@@ -3,14 +3,14 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "obsidian-knowledge-distiller"
+name = "experience-data-asset-engine"
 version = "0.1.0"
-description = "Distill AI conversations into traceable, lifecycle-managed Obsidian notes instead of dumping chat logs."
+description = "Turn AI conversations and project work into reusable, traceable, governable experience data assets stored as Obsidian notes."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "黑超人" }]
-keywords = ["obsidian", "knowledge-base", "ai-conversation", "distillation", "skill"]
+keywords = ["obsidian", "knowledge-base", "experience-asset", "knowledge-distillation", "skill"]
 classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
@@ -24,7 +24,7 @@ codex = ["zstandard>=0.22"]
 dev = ["pytest>=8", "coverage[toml]>=7.4"]
 
 [project.scripts]
-obsidian-knowledge-distiller = "obsidian_knowledge_distiller.cli:main"
+experience-data-asset-engine = "experience_data_asset_engine.cli:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
@@ -39,7 +39,7 @@ pythonpath = ["src"]
 addopts = "-ra"
 
 [tool.coverage.run]
-source = ["obsidian_knowledge_distiller"]
+source = ["experience_data_asset_engine"]
 branch = true
 
 [tool.coverage.report]

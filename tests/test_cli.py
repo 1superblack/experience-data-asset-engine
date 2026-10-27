@@ -7,15 +7,15 @@ from pathlib import Path
 
 import pytest
 
-from obsidian_knowledge_distiller import __version__
-from obsidian_knowledge_distiller.cli import (
+from experience_data_asset_engine import __version__
+from experience_data_asset_engine.cli import (
     EXIT_FAILURE,
     EXIT_INPUT_REQUIRED,
     EXIT_NOT_IMPLEMENTED,
     EXIT_OK,
     main,
 )
-from obsidian_knowledge_distiller.config import CONFIG_FILENAME, STATE_DIRNAME
+from experience_data_asset_engine.config import CONFIG_FILENAME, STATE_DIRNAME
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -91,7 +91,7 @@ def test_doctor_without_config_returns_failure(sample_vault, capsys):
 def test_doctor_uses_env_vault(sample_vault, monkeypatch, capsys):
     main(["init", "--vault", str(sample_vault)])
     capsys.readouterr()
-    monkeypatch.setenv("OKD_VAULT", str(sample_vault))
+    monkeypatch.setenv("EDAE_VAULT", str(sample_vault))
     assert main(["doctor"]) == EXIT_OK
     assert "诊断汇总" in capsys.readouterr().out
 
@@ -99,7 +99,7 @@ def test_doctor_uses_env_vault(sample_vault, monkeypatch, capsys):
 def test_doctor_prints_no_api_key(sample_vault, monkeypatch, capsys):
     main(["init", "--vault", str(sample_vault)])
     capsys.readouterr()
-    monkeypatch.setenv("OKD_API_KEY", "sk-cli-must-not-leak")
+    monkeypatch.setenv("EDAE_API_KEY", "sk-cli-must-not-leak")
     assert main(["doctor", "--vault", str(sample_vault)]) == EXIT_OK
     captured = capsys.readouterr()
     assert "sk-cli-must-not-leak" not in captured.out + captured.err
@@ -127,7 +127,7 @@ def test_scripts_entrypoint_runs_from_repo_root():
 def test_module_entrypoint_runs():
     env = dict(PYTHONPATH=str(ROOT / "src"), PYTHONIOENCODING="utf-8")
     result = subprocess.run(
-        [sys.executable, "-m", "obsidian_knowledge_distiller", "--version"],
+        [sys.executable, "-m", "experience_data_asset_engine", "--version"],
         cwd=str(ROOT),
         capture_output=True,
         text=True,
@@ -140,8 +140,8 @@ def test_module_entrypoint_runs():
 
 
 def test_module_main_guard_exits_with_code(monkeypatch, capsys):
-    monkeypatch.setattr(sys, "argv", ["obsidian-knowledge-distiller", "--version"])
+    monkeypatch.setattr(sys, "argv", ["experience-data-asset-engine", "--version"])
     with pytest.raises(SystemExit) as exc:
-        runpy.run_module("obsidian_knowledge_distiller", run_name="__main__")
+        runpy.run_module("experience_data_asset_engine", run_name="__main__")
     assert exc.value.code == EXIT_OK
     assert "0.1.0" in capsys.readouterr().out
