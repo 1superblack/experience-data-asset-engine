@@ -3,12 +3,14 @@ from __future__ import annotations
 import dataclasses
 import json
 import shutil
+import tempfile
 from pathlib import Path
 
 import pytest
 
 from experience_data_asset_engine import config as config_module
 from experience_data_asset_engine.config import (
+    CONFIG_FILENAME,
     DEFAULT_ARCHIVE_REL,
     STATE_DIRNAME,
     AppConfig,
@@ -295,6 +297,166 @@ def test_doctor_errors_when_parent_probe_fails(tmp_path, monkeypatch):
     monkeypatch.setattr(config_module, "_probe_writable", lambda directory: "permission denied")
     item = by_code(doctor(config), "archive.writable")
     assert item.level == "error"
+
+
+# --- 状态目录符号链接逃逸 -----------------------------------------------------
+
+
+def make_dir_symlink(link: Path, target: Path) -> None:
+    try:
+        link.symlink_to(target, target_is_directory=True)
+    except (OSError, NotImplementedError):  # pragma: no cover - 依赖宿主权限
+        pytest.skip("当前环境不支持创建目录符号链接")
+
+
+def test_init_rejects_state_dir_symlink_escape(tmp_path):
+    vault = tmp_path / "vault"
+    (vault / ".obsidian").mkdir(parents=True)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    make_dir_symlink(vault / STATE_DIRNAME, outside)
+    before = snapshot_tree(outside)
+
+    with pytest.raises(ConfigError, match="outside vault"):
+        init_config(vault)
+
+    assert snapshot_tree(outside) == before
+    assert not (outside / CONFIG_FILENAME).exists()
+
+
+def test_init_rejects_config_file_symlink_escape(tmp_path):
+    vault = tmp_path / "vault"
+    (vault / ".obsidian").mkdir(parents=True)
+    state_dir = vault / STATE_DIRNAME
+    state_dir.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    outside_file = outside / CONFIG_FILENAME
+    outside_file.write_text('{"schema_version": 1, "archive_dir": "x"}', encoding="utf-8")
+    before = snapshot_tree(outside)
+    (state_dir / CONFIG_FILENAME).symlink_to(outside_file)
+
+    with pytest.raises(ConfigError, match="outside vault"):
+        init_config(vault)
+
+    assert snapshot_tree(outside) == before
+
+
+def test_load_config_rejects_state_dir_symlink_escape(tmp_path):
+    vault = tmp_path / "vault"
+    (vault / ".obsidian").mkdir(parents=True)
+    outside_root = tmp_path / "outside"
+    outside_state = outside_root / STATE_DIRNAME
+    outside_state.mkdir(parents=True)
+    (outside_state / CONFIG_FILENAME).write_text(
+        json.dumps({"schema_version": 1, "archive_dir": DEFAULT_ARCHIVE_REL}),
+        encoding="utf-8",
+    )
+    make_dir_symlink(vault / STATE_DIRNAME, outside_state)
+
+    with pytest.raises(ConfigError, match="outside vault"):
+        load_config(vault)
+
+
+def test_init_still_works_with_state_dir_inside_vault(tmp_path, sample_vault):
+    config = init_config(sample_vault)
+    assert config.config_path.is_file()
+    assert config.config_path.resolve().is_relative_to(sample_vault.resolve())
+
+
+# --- doctor 越界时不崩溃、不写探针 ---------------------------------------------
+
+
+def test_doctor_reports_outside_archive_without_crashing(tmp_path):
+    vault = tmp_path / "vault"
+    (vault / ".obsidian").mkdir(parents=True)
+    state_dir = vault / STATE_DIRNAME
+    state_dir.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    config = AppConfig(
+        vault=vault.resolve(),
+        archive_dir=outside.resolve(),
+        state_dir=state_dir.resolve(),
+    )
+
+    diagnostics = doctor(config)
+
+    assert by_code(diagnostics, "archive.inside_vault").level == "error"
+    assert "archive.exists" not in {item.code for item in diagnostics}
+
+
+def test_doctor_does_not_probe_when_archive_outside_vault(tmp_path, monkeypatch):
+    vault = tmp_path / "vault"
+    (vault / ".obsidian").mkdir(parents=True)
+    state_dir = vault / STATE_DIRNAME
+    state_dir.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    config = AppConfig(
+        vault=vault.resolve(),
+        archive_dir=outside.resolve(),
+        state_dir=state_dir.resolve(),
+    )
+    calls: list[Path] = []
+    monkeypatch.setattr(
+        config_module, "_probe_writable", lambda directory: calls.append(directory) or None
+    )
+
+    doctor(config)
+
+    assert calls == []
+
+
+def test_doctor_does_not_probe_when_vault_missing(tmp_path, monkeypatch):
+    config = make_config(tmp_path)
+    shutil.rmtree(config.vault)
+    calls: list[Path] = []
+    monkeypatch.setattr(
+        config_module, "_probe_writable", lambda directory: calls.append(directory) or None
+    )
+
+    doctor(config)
+
+    assert calls == []
+
+
+def test_doctor_does_not_probe_when_obsidian_missing(tmp_path, monkeypatch):
+    config = make_config(tmp_path)
+    (config.vault / ".obsidian").rmdir()
+    calls: list[Path] = []
+    monkeypatch.setattr(
+        config_module, "_probe_writable", lambda directory: calls.append(directory) or None
+    )
+
+    diagnostics = doctor(config)
+
+    assert calls == []
+    assert by_code(diagnostics, "vault.obsidian").level == "error"
+
+
+def test_doctor_resolves_inside_archive_normally(tmp_path):
+    config = make_config(tmp_path)
+    diagnostics = doctor(config)
+    assert by_code(diagnostics, "archive.inside_vault").level == "ok"
+    assert by_code(diagnostics, "archive.writable").level == "ok"
+
+
+# --- 探针文件命名 ------------------------------------------------------------
+
+
+def test_probe_file_uses_edae_prefix(tmp_path, monkeypatch):
+    captured: dict[str, str | None] = {}
+    real_mkstemp = tempfile.mkstemp
+
+    def fake_mkstemp(*args, **kwargs):
+        captured["prefix"] = kwargs.get("prefix")
+        return real_mkstemp(*args, **kwargs)
+
+    monkeypatch.setattr(config_module.tempfile, "mkstemp", fake_mkstemp)
+    assert config_module._probe_writable(tmp_path) is None
+    assert captured["prefix"] == ".edae-probe-"
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_doctor_errors_when_archive_path_is_a_file(tmp_path):

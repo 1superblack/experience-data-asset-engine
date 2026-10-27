@@ -66,6 +66,11 @@
 校验发生在任何 `mkdir` / 配置写入之前——普通目录直接抛 `ConfigError`，磁盘上不新增状态目录、
 不新增归档目录、不新增配置文件。这样「指错目录」不会在你机器上留垃圾。
 
+**状态目录与配置文件也必须落在 vault 内（按解析后的真实路径判断）。**
+如果 `<vault>/.experience-data-asset-engine` 或其中的 `config.json` 被预先换成指向 vault 外的
+符号链接，`init` 与 `load_config` 都会在读写之前抛 `ConfigError`，vault 外零写入。
+判定用的是 `Path.resolve()` 后的路径，因此「链接、链接套链接、大小写差异」都绕不过去。
+
 - 配置已存在：**不覆盖**，直接返回既有配置，CLI 打印「配置已存在，未覆盖」。
 - 配置不存在：写入 `config.json`（临时文件 + 原子替换），创建归档目录与状态目录。
 - 重复 `init` 传入不同 `--archive-dir` 不会改变已有配置——要改请手动编辑 JSON，
@@ -82,6 +87,14 @@
 | `archive.exists` | ok / warn / error | 归档目录存在 / 待创建 / 被同名文件占用 |
 | `archive.writable` | ok / warn / error | 目录已存在时探针写入是否成功；**目录不存在时向上找最近的父目录验证**，父目录可写报 warn（不是 ok），父目录不是目录或不可写报 error，无法验证报 error |
 
+越界与不可用时的短路规则（不写探针）：
+
+| 情形 | 输出 |
+|---|---|
+| 归档路径越界 | 只输出 `archive.inside_vault=error` 后**立即停止**，不访问相对路径、不写探针；`state.writable` 标记为「已跳过」 |
+| 状态目录越界 | `state.writable=error`（状态目录越界，拒绝写入），不写探针 |
+| vault 不存在 / 缺 `.obsidian` | `vault.exists` 或 `vault.obsidian` 报 error，`archive.writable` 与 `state.writable` 均标记为「已跳过」 |
+
 `archive.writable` 的判定细则（防止假绿灯）：
 
 | 情形 | 级别 | 含义 |
@@ -97,7 +110,9 @@
 | `codex.zstandard` | ok / warn | 是否可读 `.jsonl.zst` |
 
 `doctor` 有任一项 `error` 时退出码为 `1`；只有 `warn` 时退出码为 `0`。
-`doctor` 是只读的：只在状态目录与归档目录写一个 `.okd-probe-*.tmp` 探针文件并立即删除。
+`doctor` 是只读的：只在状态目录与归档目录写一个 `.edae-probe-*.tmp` 探针文件并立即删除。
+**vault 不存在、缺少 `.obsidian`、或归档路径越界时，一个探针都不写**——对应检查直接跳过，
+只返回结构化诊断。
 
 ## 退出码
 

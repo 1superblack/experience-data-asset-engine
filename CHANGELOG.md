@@ -43,6 +43,13 @@
 - **强制被否决方案**：所有 `decisions` 的 `rejected` 全为空时校验失败，不再静默通过。
 - **zstandard 真正可选**：未安装时全量测试仍通过，需要实际解压的用例自动 skip，
   「缺依赖必须失败关闭」的用例保留。
+- **封住状态目录符号链接逃逸**：`<vault>/.experience-data-asset-engine` 或 `config.json`
+  被换成指向 vault 外的符号链接时，`init` 与 `load_config` 在读写前就抛 `ConfigError`，
+  vault 外零写入（解析后路径判定，链接套链接同样拦得住）。
+- **doctor 越界即停**：归档路径越界时只报 `archive.inside_vault=error` 并立即停止，
+  不再访问相对路径（原先会抛未捕获 `ValueError`）；vault 不可用或路径越界时**不写任何探针**，
+  只返回结构化诊断。
+- 探针文件名统一为 `.edae-probe-*.tmp`。
 
 ### 已知限制
 

@@ -86,7 +86,12 @@ class AppConfig:
 
     @property
     def archive_rel(self) -> str:
-        return self.archive_dir.relative_to(self.vault).as_posix()
+        try:
+            return self.archive_dir.relative_to(self.vault).as_posix()
+        except ValueError:
+            raise ConfigError(
+                f"归档目录不在 vault 内（outside vault），无法表示相对路径: {self.archive_dir}"
+            ) from None
 
     def api_key(self) -> str | None:
         """凭据只从环境变量读，永不来自配置文件。"""
@@ -127,6 +132,17 @@ def require_obsidian_vault(vault: Path) -> Path:
             "init 不会在普通目录创建任何文件"
         )
     return resolved
+
+
+def ensure_state_inside_vault(vault: Path, state_dir: Path, config_path: Path) -> None:
+    """状态目录与配置文件都必须解析到 vault 内。
+
+    防的是「预先放一个指向 vault 外的符号链接」这一手：``.experience-data-asset-engine``
+    或 ``config.json`` 被换成符号链接时，``mkdir(exist_ok=True)`` 与写文件都会跟着跑到
+    vault 外面去。所有落盘动作前都要过这一关。
+    """
+    ensure_inside_vault(vault, state_dir)
+    ensure_inside_vault(vault, config_path)
 
 
 def _archive_dir_from_rel(vault: Path, archive_rel: str) -> Path:
@@ -207,7 +223,7 @@ def _now_iso() -> str:
 def _probe_writable(directory: Path) -> str | None:
     """在目录内写一个探针文件再删掉，返回失败原因（成功返回 None）。"""
     try:
-        handle, name = tempfile.mkstemp(prefix=".okd-probe-", suffix=".tmp", dir=str(directory))
+        handle, name = tempfile.mkstemp(prefix=".edae-probe-", suffix=".tmp", dir=str(directory))
     except OSError as exc:
         return str(exc)
     os.close(handle)
@@ -228,11 +244,14 @@ def init_config(vault: Path, archive_rel: str = DEFAULT_ARCHIVE_REL) -> AppConfi
     archive_dir = _archive_dir_from_rel(vault_path, archive_rel)  # 只做路径计算，不落盘
     state_dir = vault_path / STATE_DIRNAME
     config_path = state_dir / CONFIG_FILENAME
+    ensure_state_inside_vault(vault_path, state_dir, config_path)
     if config_path.exists():
         return load_config(vault_path)
 
     _ensure_dir(state_dir, "状态目录")
     _ensure_dir(archive_dir, "归档目录")
+    # mkdir 之后复核一次：目录若在创建期间被换成符号链接，这里会拦住
+    ensure_state_inside_vault(vault_path, state_dir, config_path)
     payload: dict[str, Any] = {
         "schema_version": CONFIG_SCHEMA_VERSION,
         "archive_dir": archive_dir.relative_to(vault_path).as_posix(),
@@ -299,11 +318,18 @@ def _env_override(env_name: str, fallback: str | None) -> str | None:
 
 
 def _read_config(config_path: Path) -> AppConfig:
-    if config_path.parent.name != STATE_DIRNAME:
+    state_dir = config_path.parent
+    if state_dir.name != STATE_DIRNAME:
         raise ConfigError(
             "配置文件必须位于 <vault>/"
             f"{STATE_DIRNAME}/{CONFIG_FILENAME}，当前路径不符合约定: {config_path}"
         )
+    # 先验边界再读文件：状态目录或 config.json 是符号链接且指向 vault 外时，
+    # 必须在读取之前就失败，不能靠「目录名对不对」蒙过去。
+    vault_path = state_dir.parent
+    vault_resolved = vault_path.resolve()
+    ensure_state_inside_vault(vault_resolved, state_dir, config_path)
+
     payload = read_json_file(config_path)
     if not isinstance(payload, dict):
         raise ConfigError(f"配置文件必须是 JSON 对象: {config_path}")
@@ -318,9 +344,7 @@ def _read_config(config_path: Path) -> AppConfig:
     if not isinstance(archive_rel, str) or not archive_rel.strip():
         raise ConfigError("配置缺少 archive_dir，请重新运行 init")
 
-    vault_path = config_path.parent.parent.resolve()
-    archive_dir = _archive_dir_from_rel(vault_path, archive_rel)
-    state_dir = config_path.parent.resolve()
+    archive_dir = _archive_dir_from_rel(vault_resolved, archive_rel)
 
     provider = _env_override(ENV_PROVIDER, _optional_str(payload.get("provider"), "provider"))
     model = _env_override(ENV_MODEL, _optional_str(payload.get("model"), "model"))
@@ -330,9 +354,9 @@ def _read_config(config_path: Path) -> AppConfig:
     ) or DEFAULT_API_KEY_ENV
 
     return AppConfig(
-        vault=vault_path,
+        vault=vault_resolved,
         archive_dir=archive_dir,
-        state_dir=state_dir,
+        state_dir=state_dir.resolve(),
         provider=provider,
         model=model,
         base_url=base_url,
@@ -406,16 +430,19 @@ def _diag_vault(config: AppConfig) -> list[Diagnostic]:
     return diagnostics
 
 
-def _diag_archive(config: AppConfig) -> list[Diagnostic]:
-    diagnostics: list[Diagnostic] = []
+def _diag_archive(config: AppConfig) -> tuple[list[Diagnostic], bool]:
+    """返回 (诊断列表, 边界是否通过)。
+
+    边界不通过时立即返回，不访问 ``archive_rel``（会抛 ValueError），也不写任何探针。
+    """
     try:
         ensure_inside_vault(config.vault, config.archive_dir)
     except ConfigError as exc:
-        diagnostics.append(Diagnostic("archive.inside_vault", "error", str(exc)))
-    else:
-        diagnostics.append(
-            Diagnostic("archive.inside_vault", "ok", f"归档目录位于 vault 内: {config.archive_rel}")
-        )
+        return [Diagnostic("archive.inside_vault", "error", str(exc))], False
+
+    diagnostics: list[Diagnostic] = [
+        Diagnostic("archive.inside_vault", "ok", f"归档目录位于 vault 内: {config.archive_rel}")
+    ]
 
     if config.archive_dir.is_dir():
         diagnostics.append(
@@ -441,7 +468,7 @@ def _diag_archive(config: AppConfig) -> list[Diagnostic]:
             )
         )
         diagnostics.append(_diag_archive_writable_without_dir(config.archive_dir))
-    return diagnostics
+    return diagnostics, True
 
 
 def nearest_existing_parent(target: Path) -> Path | None:
@@ -485,6 +512,10 @@ def _diag_archive_writable_without_dir(archive_dir: Path) -> Diagnostic:
 
 
 def _diag_state(config: AppConfig) -> Diagnostic:
+    try:
+        ensure_inside_vault(config.vault, config.state_dir)
+    except ConfigError as exc:
+        return Diagnostic("state.writable", "error", f"状态目录越界，拒绝写入: {exc}")
     if not config.state_dir.is_dir():
         return Diagnostic(
             "state.writable",
@@ -551,14 +582,43 @@ def _diag_codex_dependency() -> Diagnostic:
     )
 
 
+def vault_is_usable(config: AppConfig) -> bool:
+    """vault 本身是否可用：目录存在且带 .obsidian。"""
+    return config.vault.is_dir() and has_obsidian_dir(config.vault)
+
+
 def doctor(config: AppConfig) -> list[Diagnostic]:
-    """只读自检：不修改任何笔记，只在状态目录/归档目录写一个临时探针文件。"""
+    """只读自检。
+
+    硬约束：vault 不成立或路径越界时**立即停止**对应检查——不写探针、不访问越界路径，
+    只返回结构化 Diagnostic，绝不抛未处理异常。
+    """
     diagnostics: list[Diagnostic] = [_diag_python()]
     diagnostics.extend(_diag_vault(config))
-    diagnostics.extend(_diag_archive(config))
+    tail = [*_diag_model(config), _diag_codex_dependency()]
+
+    if not vault_is_usable(config):
+        blocked = "vault 不可用（不存在或缺少 .obsidian），跳过检查（未写探针）"
+        diagnostics.append(Diagnostic("archive.writable", "error", blocked))
+        diagnostics.append(Diagnostic("state.writable", "error", blocked))
+        diagnostics.extend(tail)
+        return diagnostics
+
+    archive_diagnostics, boundary_ok = _diag_archive(config)
+    diagnostics.extend(archive_diagnostics)
+    if not boundary_ok:
+        diagnostics.append(
+            Diagnostic(
+                "state.writable",
+                "error",
+                "归档路径越界，已跳过全部可写性探针（未写入任何文件）",
+            )
+        )
+        diagnostics.extend(tail)
+        return diagnostics
+
     diagnostics.append(_diag_state(config))
-    diagnostics.extend(_diag_model(config))
-    diagnostics.append(_diag_codex_dependency())
+    diagnostics.extend(tail)
     return diagnostics
 
 
