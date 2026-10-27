@@ -1,0 +1,128 @@
+name: ci
+
+# 只做一件事：证明「干净机器上装得起来、测得过、包打得出来」。
+# 这里不写徽章、不写「已验证通过」之类字样——状态由 GitHub 上的真实运行结果说话。
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: py${{ matrix.python }} / dev+codex
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12"]
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Python ${{ matrix.python }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: 安装依赖（dev + codex，含 zstandard）
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev,codex]"
+
+      # 覆盖率必须由 `coverage run` 产生数据文件后，`coverage report` 才有东西可读；
+      # 所以这里是「一次运行同时出测试结果和覆盖率」，而不是先裸跑 pytest 再 report
+      # （那样 report 只会报 No data to report）。
+      - name: 单元测试 + 覆盖率（分支，阈值 85%）
+        run: |
+          python -m coverage run -m pytest -q --cache-clear
+          python -m coverage report --fail-under=85
+
+      # 仓库当前没有 scripts/quick_validate.py。这里用「探测后执行，缺失则显式跳过」，
+      # 不硬编码任何本机路径，也绝不在脚本缺失时打印假的通过信息。
+      - name: 校验技能清单（缺失校验脚本时显式跳过）
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${GITHUB_WORKSPACE}"
+          for candidate in scripts/quick_validate.py scripts/validate_skill.py; do
+            if [[ -f "${candidate}" ]]; then
+              echo "校验入口：${candidate}"
+              python "${candidate}" --help
+              python "${candidate}" .
+              exit 0
+            fi
+          done
+          echo "::warning::仓库未提供 scripts/quick_validate.py，显式 skill 校验已跳过（本次不声明校验通过）。"
+          python - <<'PY'
+          import pathlib
+          import sys
+
+          text = pathlib.Path("SKILL.md").read_text(encoding="utf-8")
+          if not text.startswith("---\n"):
+              sys.exit("SKILL.md 缺少 YAML frontmatter")
+          head = text.split("---", 2)[1]
+          missing = [key for key in ("name:", "description:") if key not in head]
+          if missing:
+              sys.exit(f"SKILL.md frontmatter 缺少字段: {missing}")
+          print("SKILL.md frontmatter 结构兜底检查通过（仅为兜底，不等同于完整的 skill 校验）")
+          PY
+
+      - name: 打包产物体检（根目录直挂 + 可复现 + 不含隐私）
+        run: python scripts/build_skill_zip.py --output dist/skill.zip
+
+  tests-without-zstandard:
+    # 可选依赖装不上时不能整仓崩掉：这组刻意只装 dev，验证 5 个依赖 zstandard 的
+    # 用例被 skip 时其余全绿。跳过是预期行为，不是掩盖失败。
+    name: py${{ matrix.python }} / dev only（无 zstandard）
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12"]
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Python ${{ matrix.python }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: 安装依赖（仅 dev，不含 zstandard）
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+          python - <<'PY'
+          import importlib.util
+          import sys
+
+          if importlib.util.find_spec("zstandard") is not None:
+              sys.exit("zstandard 意外可导入，本 job 的前提不成立")
+          print("已确认环境无 zstandard")
+          PY
+
+      - name: 全量测试（5 个 zstd 用例应 skip，其余必须全绿）
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m pytest -q --cache-clear -rs 2>&1 | tee pytest-no-zstd.log
+          if grep -Eq '(^|[^0-9])5 skipped' pytest-no-zstd.log; then
+            echo "跳过数量符合预期：5 个依赖 zstandard 的用例被 skip。"
+          else
+            echo "::error::预期恰好 5 个 zstd 用例被 skip，实际摘要与预期不符。"
+            tail -n 20 pytest-no-zstd.log
+            exit 1
+          fi
