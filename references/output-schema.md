@@ -1,0 +1,163 @@
+# 数据协议
+
+两份 JSON 协议，`schema_version` 当前为 `1`。字段增删必须同时升版本，读取端遇到未知版本
+直接失败，不做猜测性兼容。
+
+- `NormalizedSession`：来源无关的会话中间格式，所有适配器的输出。
+- `DistilledNote`：笔记的唯一合法输入，写入端只认这一份。
+
+## 1. NormalizedSession
+
+```json
+{
+  "schema_version": 1,
+  "source": "codex",
+  "session_id": "019abc",
+  "title": "会话标题",
+  "created_at": "2026-10-27T10:00:00+08:00",
+  "updated_at": "2026-10-27T11:00:00+08:00",
+  "model": "demo-model",
+  "cwd": "/path/to/project",
+  "messages": [
+    {
+      "role": "user",
+      "text": "只保留有效对话内容",
+      "created_at": "2026-10-27T10:01:00+08:00",
+      "kind": "message"
+    }
+  ],
+  "metadata": {}
+}
+```
+
+| 字段 | 类型 | 必填 | 规则 |
+|---|---|---|---|
+| `schema_version` | int | 是 | 必须等于 `1` |
+| `source` | string | 是 | 来源标识，非空。已知值：`codex`、`chatgpt`、`claude`、`workbuddy`、`manual` |
+| `session_id` | string | 是 | 来源内的唯一会话 ID，幂等键的一半 |
+| `title` | string | 是 | 会话标题，非空 |
+| `created_at` | string | 是 | ISO 8601，带时区更好，允许无时区 |
+| `updated_at` | string | 是 | ISO 8601 |
+| `messages` | array | 是 | 可以是空数组，但适配器通常要求至少 1 条 |
+| `metadata` | object | 否 | 适配器附加信息（工具调用计数、被忽略记录数等） |
+| `model` | string \| null | 否 | 会话使用的模型 |
+| `cwd` | string \| null | 否 | 会话工作目录。**只是记录，不用于任何读写决策** |
+
+### Message
+
+| 字段 | 类型 | 必填 | 取值 |
+|---|---|---|---|
+| `role` | string | 是 | `user` / `assistant` / `system` / `tool` |
+| `text` | string | 是 | 正文，允许空串（空消息交由降噪层处理） |
+| `created_at` | string \| null | 否 | ISO 8601 |
+| `kind` | string | 否 | `message`（默认）/ `tool_call` / `tool_result` / `system` / `summary` |
+
+## 2. DistilledNote
+
+```json
+{
+  "schema_version": 1,
+  "title": "主题短名",
+  "project": "项目名",
+  "summary": "一句话结论",
+  "background": "目标与背景",
+  "diagnosis": ["诊断事实"],
+  "decisions": [
+    {
+      "decision": "采用方案 A",
+      "reason": "因为证据 X",
+      "rejected": ["方案 B：成本过高"]
+    }
+  ],
+  "evidence": ["可复核的数据或短引用"],
+  "reusable": ["可复用经验"],
+  "risks": ["风险"],
+  "todo": ["待办"],
+  "noise_report": {
+    "input_messages": 210,
+    "kept_messages": 83,
+    "system_noise": 42,
+    "tool_noise": 55,
+    "duplicate_topics": 4,
+    "dead_ends": 6,
+    "redactions": 3
+  },
+  "content_volatility": "evolving",
+  "status": "有效",
+  "review_after": "2027-01-25"
+}
+```
+
+| 字段 | 类型 | 必填 | 规则 |
+|---|---|---|---|
+| `schema_version` | int | 否 | 缺省等于 `1`；给了就必须等于 `1` |
+| `title` | string | 是 | 会变成文件名：不能含尖括号、冒号、引号、斜杠、反斜杠、问号、星号、竖线；不能以 `.` 开头；不能是 Windows 保留名（`CON`、`PRN`、`AUX`、`NUL`、`COM1-9`、`LPT1-9`）；长度 <= 120；首尾无空白 |
+| `project` | string | 是 | 项目名，决定归档子目录 |
+| `summary` | string | 是 | 一句话结论 |
+| `background` | string | 是 | 目标与背景，写「为什么要做」 |
+| `diagnosis` | string[] | 是 | 诊断事实，只写查明的东西，不写推测；可空数组 |
+| `decisions` | object[] | 是 | **不能为空**。每项 `decision` + `reason` 都不能为空，`rejected` 可选 |
+| `evidence` | string[] | 是 | 可复核的证据或短引用，**不允许整段粘贴对话** |
+| `reusable` | string[] | 是 | 可复用经验 |
+| `risks` | string[] | 是 | 风险；可空数组 |
+| `todo` | string[] | 是 | 待办；可空数组 |
+| `noise_report` | object | 是 | 见下，7 个计数器全部必填 |
+| `content_volatility` | string | 是 | `stable` / `evolving` / `volatile` / `progress` |
+| `status` | string | 是 | `有效` / `待复核` / `已过时` / `已被取代` |
+| `review_after` | string | 是 | `YYYY-MM-DD`，由生命周期策略计算，不允许自由填 |
+
+### NoiseReport
+
+| 计数器 | 含义 |
+|---|---|
+| `input_messages` | 输入消息总数 |
+| `kept_messages` | 保留进蒸馏的有效消息数，必须 <= `input_messages` |
+| `system_noise` | 被过滤的输入噪音（系统提示、环境注入、空确认） |
+| `tool_noise` | 被过滤的执行噪音（工具输出、长日志、失败重试） |
+| `duplicate_topics` | 被合并的重复主题数 |
+| `dead_ends` | 被剔除的无效试错 / 已推翻假设 |
+| `redactions` | 脱敏替换次数 |
+
+所有计数器为非负整数。它们会原样出现在笔记的「降噪统计」一节，是审计依据。
+
+### 为什么 `decisions` 不能为空
+
+只写摘要的产物不是蒸馏结果，是摘要。摘要在几周后无法回答「当时为什么不选另一个方案」，
+而这正是知识库要解决的问题。校验层因此把 `decisions` 设为硬性条件。
+
+`diagnosis` / `evidence` / `reusable` / `risks` / `todo` 允许空数组，但渲染时章节标题
+必须存在，空的写「无」。允许为空是因为「这次没有风险」「没有待办」是合法结论。
+
+## 3. 与 Obsidian frontmatter 的映射
+
+写入端（后续版本）按此映射生成 frontmatter，不改字段名：
+
+| DistilledNote | frontmatter |
+|---|---|
+| `project` | `项目` + 目录名 |
+| `title` | `主题` + 文件名 |
+| `status` | `状态` |
+| `content_volatility` | `内容时效`（`stable` → 稳定，`evolving` → 演进，`volatile` → 易变，`progress` → 进度） |
+| `review_after` | `review_after` |
+| — | `created` / `updated` / `valid_from`（写入当天） |
+| — | `取代自` / `取代为`（双向链接） |
+| — | `来源` / `会话ID` / `内容哈希` |
+
+## 4. 失败关闭清单
+
+以下输入一律报错退出，不降级、不猜测：
+
+- JSON 语法错误（报行号列号）。
+- 顶层不是对象。
+- `schema_version` 不是 `1`。
+- 必填字段缺失、类型不对、空字符串。
+- `role` / `kind` / `status` / `content_volatility` 不在枚举内。
+- 时间戳不是 ISO 8601、`review_after` 不是 `YYYY-MM-DD`。
+- `title` 会生成非法或隐藏文件名。
+- `noise_report` 缺计数器、有负数、`kept_messages > input_messages`。
+
+## 5. 版本策略
+
+- 加字段（向后兼容）：升次版本号，`schema_version` 不变。
+- 改字段含义 / 删字段 / 改枚举：升 `schema_version`，旧版本读取直接失败。
+- 每个 Gate 结束前跑一次全量 `pytest -q`，协议测试是唯一防线。

@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "title": "会话归档协议与稳定字段",
+  "project": "对话蒸馏器",
+  "summary": "先锁定标准化会话与蒸馏笔记两份协议，再写输入适配器，避免后续返工。",
+  "background": "需要把不同来源的 AI 对话统一成一种中间格式，并确保写进知识库的是结论而不是原文。",
+  "diagnosis": [
+    "来源格式差异集中在角色标记与时间戳，正文结构差异不大",
+    "没有统一协议时，写入端无法判断一条记录该不该落盘"
+  ],
+  "decisions": [
+    {
+      "decision": "先定 NormalizedSession 与 DistilledNote 两份协议",
+      "reason": "协议是输入适配器与写入端之间的唯一契约，先定协议可以把返工限制在适配层",
+      "rejected": [
+        "直接按各客户端格式分别实现写入：每接一个来源就要改写入端，成本随来源数量线性增长"
+      ]
+    }
+  ],
+  "evidence": [
+    "两份协议各只有 1 个版本号，字段增删必须升版本",
+    "蒸馏笔记缺少 decisions 时校验直接失败"
+  ],
+  "reusable": [
+    "多来源导入先做中间协议，再做适配器",
+    "把「不允许只写摘要」写进校验，而不是写进文档"
+  ],
+  "risks": [
+    "协议过早冻结可能挡住后续真实需求"
+  ],
+  "todo": [
+    "补充降噪统计字段的真实样本对比"
+  ],
+  "noise_report": {
+    "input_messages": 210,
+    "kept_messages": 83,
+    "system_noise": 42,
+    "tool_noise": 55,
+    "duplicate_topics": 4,
+    "dead_ends": 6,
+    "redactions": 3
+  },
+  "content_volatility": "evolving",
+  "status": "有效",
+  "review_after": "2027-01-25"
+}

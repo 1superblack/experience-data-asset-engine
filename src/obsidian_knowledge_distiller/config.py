@@ -132,9 +132,13 @@ def _archive_dir_from_rel(vault: Path, archive_rel: str) -> Path:
 
 
 def read_json_file(path: Path) -> Any:
-    """读 JSON：缺失或不可读抛 InputError，语法错误抛 SchemaError（带行号）。"""
+    """读 JSON：缺失或不可读抛 InputError，语法错误抛 SchemaError（带行号）。
+
+    使用 ``utf-8-sig`` 以容忍 Windows 工具写出的 BOM，否则带 BOM 的导出文件会在
+    第一行直接解析失败。
+    """
     try:
-        text = Path(path).read_text(encoding="utf-8")
+        text = Path(path).read_text(encoding="utf-8-sig")
     except FileNotFoundError:
         raise InputError(f"文件不存在: {path}") from None
     except OSError as exc:
