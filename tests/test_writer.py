@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import shutil
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -383,10 +383,17 @@ def test_handwritten_note_is_never_overwritten(config: AppConfig, today: date):
 
     assert result.action == ACTION_PENDING
     assert target.read_text(encoding="utf-8") == "这是我手写的笔记，别动。\n"
-    assert result.path.name == f"{note.title}.pending.md"
-    payload = json.loads(result.path.read_text(encoding="utf-8"))
-    assert payload["待合并到"] == target.name
-    assert payload["内容哈希"] == result.content_hash
+    assert result.path.name == f"{note.title}.pending-{result.content_hash[:8]}.md"
+
+    # pending 必须是可解析的完整 Markdown，不是 JSON 指针
+    fields, body = parse_frontmatter(result.path.read_text(encoding="utf-8"))
+    assert fields["内容哈希"] == result.content_hash
+    assert fields["生成器"] == GENERATOR
+    assert "## 摘要" in body and "## 决策" in body
+    # 标注待合并到的目标，且只写相对路径
+    assert "待合并到" in body
+    assert f"{note.project}/{target.name}" in body
+    assert "C:/" not in body and "C:\\" not in body
     assert state_not_written(config)
 
 
@@ -395,35 +402,57 @@ def state_not_written(config: AppConfig) -> bool:
     return not config.state_path.exists()
 
 
-def test_pending_collision_gets_unique_name(config: AppConfig, today: date):
+def test_pending_is_idempotent_across_repeated_calls(config: AppConfig, today: date):
+    """同一份冲突内容重复归档：命中同一个 pending，零新增、零改动。"""
     note = make_note()
     target = note_path(config, note)
     target.parent.mkdir(parents=True)
     target.write_text("手写内容\n", encoding="utf-8")
-    first_pending = target.with_name(f"{note.title}.pending.md")
-    first_pending.write_text("先到的候选\n", encoding="utf-8")
 
-    result = write_note(note, make_session(), config)
+    first = write_note(note, make_session(), config)
+    before = snapshot(config.vault)
+    second = write_note(note, make_session(), config)
+    after = snapshot(config.vault)
 
-    assert result.action == ACTION_PENDING
-    assert result.path.name == f"{note.title}.pending-{result.content_hash[:8]}.md"
-    assert first_pending.read_text(encoding="utf-8") == "先到的候选\n"
-    assert target.read_text(encoding="utf-8") == "手写内容\n"
+    assert first.action == ACTION_PENDING
+    assert second.action == ACTION_PENDING
+    assert second.path == first.path
+    assert before == after, "第二次归档不得新增或改动任何文件"
+    assert len(list(target.parent.glob("*.pending-*.md"))) == 1
 
 
-def test_pending_slots_exhausted_raises_instead_of_overwriting(config: AppConfig, today: date):
+def test_pending_does_not_grow_pending_2_or_3(config: AppConfig, today: date):
+    """连续三次归档同一冲突内容：仍然只有一个 pending 文件。"""
+    note = make_note()
+    target = note_path(config, note)
+    target.parent.mkdir(parents=True)
+    target.write_text("手写内容\n", encoding="utf-8")
+
+    for _ in range(3):
+        write_note(note, make_session(), config)
+
+    pendings = sorted(target.parent.glob("*.pending-*.md"))
+    assert len(pendings) == 1
+    assert not list(target.parent.glob("*.pending-2*"))
+    assert not list(target.parent.glob("*.pending-3*"))
+
+
+def test_foreign_pending_with_same_name_stops_instead_of_overwriting(
+    config: AppConfig, today: date
+):
+    """同名 pending 已被别人占用：停下报错，绝不覆盖、也不静默返回错的文件。"""
     note = make_note()
     session = make_session()
     target = note_path(config, note)
     target.parent.mkdir(parents=True)
     target.write_text("手写内容\n", encoding="utf-8")
-    content_hash = content_hash_of(note, session)
-    for candidate in writer._pending_candidates(target, content_hash):
-        candidate.write_text("占位\n", encoding="utf-8")
+    digest = content_hash_of(note, session)
+    foreign = target.with_name(f"{note.title}.pending-{digest[:8]}.md")
+    foreign.write_text("别人写的候选\n", encoding="utf-8")
 
-    with pytest.raises(ConfigError, match="pending 名额已用尽"):
+    with pytest.raises(ConfigError, match="同名 pending"):
         write_note(note, session, config)
-    assert target.read_text(encoding="utf-8") == "手写内容\n"
+    assert foreign.read_text(encoding="utf-8") == "别人写的候选\n"
 
 
 def test_other_session_same_title_goes_pending(config: AppConfig, today: date):
@@ -435,6 +464,69 @@ def test_other_session_same_title_goes_pending(config: AppConfig, today: date):
 
     assert result.action == ACTION_PENDING
     assert note_path(config, note).read_text(encoding="utf-8") == original
+
+
+# --- 同一会话只有一篇正式笔记 -----------------------------------------------
+
+
+def test_same_session_title_change_does_not_create_second_note(
+    config: AppConfig, today: date
+):
+    """同会话改标题：正式笔记仍只有一篇，旧笔记不动，新内容落 pending 等确认。"""
+    session = make_session()
+    created = write_note(make_note(), session, config)
+    assert created.action == ACTION_CREATED
+    original_text = created.path.read_text(encoding="utf-8")
+
+    result = write_note(make_note(title="Gate2 隐私旁路修复（改名）"), session, config)
+
+    assert result.action == ACTION_PENDING, "路径变化不得再 created 第二篇正式笔记"
+    official = [p for p in config.vault.rglob("*.md") if ".pending" not in p.name]
+    assert official == [created.path], f"正式笔记应仍只有一篇，实际 {official}"
+    assert created.path.read_text(encoding="utf-8") == original_text, "旧笔记不得被移动或改写"
+
+    fields, body = parse_frontmatter(result.path.read_text(encoding="utf-8"))
+    assert fields["状态键"] == state_key_of(session)
+    assert "待合并到" in body
+    # 旧 state path 不能被悄悄遗弃：pending 必须指回它
+    assert created.path.relative_to(config.vault).as_posix() in body
+    assert "标题或项目名变化" in body
+
+
+def test_same_session_project_change_does_not_create_second_note(
+    config: AppConfig, today: date
+):
+    """同会话改项目名同样不得落到第二个目录里。"""
+    session = make_session()
+    created = write_note(make_note(), session, config)
+
+    result = write_note(make_note(project="另一个项目"), session, config)
+
+    assert result.action == ACTION_PENDING
+    official = [p for p in config.vault.rglob("*.md") if ".pending" not in p.name]
+    assert official == [created.path]
+
+
+def test_moved_state_path_with_same_hash_is_skipped(config: AppConfig, today: date):
+    """笔记被人工改名、state 同步更新后：同会话再归档应跳过，不再写第二篇。"""
+    session = make_session()
+    note = make_note()
+    created = write_note(note, session, config)
+
+    # 模拟用户手工改名，并把 state 指到新位置
+    other = created.path.with_name("历史位置.md")
+    created.path.rename(other)
+    state = json.loads(config.state_path.read_text(encoding="utf-8"))
+    state["entries"][state_key_of(session)]["path"] = other.relative_to(
+        config.vault
+    ).as_posix()
+    config.state_path.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
+
+    result = write_note(note, session, config)
+
+    assert result.action == ACTION_SKIPPED
+    assert result.path == other
+    assert not note_path(config, note).exists(), "不得在目标位置再写一篇"
 
 
 # --- 边界：vault 外与符号链接 ------------------------------------------------
@@ -553,6 +645,41 @@ def test_render_note_defaults_to_safe_title_and_project():
     assert fields["主题"] == safe_component(note.title)
     assert fields["项目"] == "A, B 项目"
     assert body.splitlines()[0] == f"# {safe_component(note.title)}"
+
+
+# --- 日期口径：必须用本地日期 -----------------------------------------------
+
+
+def test_today_uses_local_date_not_utc(monkeypatch: pytest.MonkeyPatch):
+    """``_today()`` 用本地时区：UTC 日期在东八区 00:00-08:00 会写成前一天。"""
+
+    class FakeDateTime:
+        @classmethod
+        def now(cls, tz=None):
+            if tz is None:
+                return datetime(2026, 10, 27, 7, 30)  # 本地：27 日早上 7:30
+            return datetime(2026, 10, 26, 23, 30, tzinfo=timezone.utc)  # UTC 仍是 26 日
+
+    monkeypatch.setattr(writer, "datetime", FakeDateTime)
+    assert writer._today() == date(2026, 10, 27)
+
+
+def test_write_uses_local_date_for_created(config: AppConfig, monkeypatch: pytest.MonkeyPatch):
+    """落盘日期同样走本地日期，不受 UTC 偏移影响。"""
+
+    class FakeDateTime:
+        @classmethod
+        def now(cls, tz=None):
+            if tz is None:
+                return datetime(2026, 10, 27, 0, 30)  # 本地刚过零点
+            return datetime(2026, 10, 26, 16, 30, tzinfo=timezone.utc)  # UTC 还是 26 日
+
+    monkeypatch.setattr(writer, "datetime", FakeDateTime)
+    result = write_note(make_note(), make_session(), config)
+    fields, _ = parse_frontmatter(result.path.read_text(encoding="utf-8"))
+
+    assert fields["created"] == "2026-10-27"
+    assert fields["updated"] == "2026-10-27"
 
 
 # --- Windows 文件名与原子替换 ------------------------------------------------

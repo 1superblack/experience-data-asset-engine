@@ -5,7 +5,10 @@
 1. **只写 vault 内**：``<archive_dir>/<project>/<title>.md``，落盘前所有路径都用
    ``resolve_safely`` 解析并确认仍在 vault 与 archive_dir 之内；符号链接逃逸一律拒绝。
 2. **不覆盖别人的笔记**：目标文件存在但不是我写的（没有生成器标记或状态键不匹配），
-   只写 ``<title>.pending.md``，绝不覆盖；pending 已存在也不覆盖。
+   只写 ``<title>.pending-<hash>.md`` 候选（完整 Markdown，可合并），绝不覆盖；
+   同一份冲突内容重复归档命中同一个 pending，不产生 ``.pending-2`` / ``.pending-3``。
+3. **同一会话只有一篇正式笔记**：``state_key`` 已记录过别的路径时，不再 created 第二篇，
+   改为落 pending 并标出「待合并到」的旧路径，由人确认；工具不移动、不删除任何笔记。
 3. **原子替换**：先写同目录临时文件再 ``os.replace``，不留半截 Markdown。
 4. **幂等**：同一 ``source + session_id`` 内容没变就是 ``skipped``，文件字节一个都不动。
 5. **dry-run 零写入**：不建目录、不写 Markdown、不写 state、不写 audit。
@@ -39,7 +42,6 @@ GENERATOR: Final = "experience-data-asset-engine"
 FRONTMATTER_FENCE: Final = "---"
 PENDING_SUFFIX: Final = ".pending"
 STATE_SCHEMA_VERSION: Final = 1
-MAX_PENDING_ATTEMPTS: Final = 12
 
 #: 写入动作。
 ACTION_CREATED: Final = "created"
@@ -104,8 +106,13 @@ class WriteResult:
 
 
 def _today() -> date:
-    """当前日期。测试通过 monkeypatch 本函数固定基准日，不读隐式 today。"""
-    return datetime.now(timezone.utc).date()
+    """当前日期，**本地时区**。
+
+    不能用 ``datetime.now(timezone.utc).date()``：在东八区每天 00:00-08:00
+    会被算成前一天，``created`` / ``updated`` 就比真实归档日早一天，
+    笔记里记的日期与用户日历对不上。测试通过 monkeypatch 本函数固定基准日。
+    """
+    return datetime.now().date()
 
 
 def content_hash_of(note: DistilledNote, session: NormalizedSession) -> str:
@@ -494,16 +501,15 @@ def _is_ours(existing: Path, state_key: str) -> bool:
     return fields.get("生成器") == GENERATOR and fields.get("状态键") == state_key
 
 
-def _pending_candidates(target: Path, content_hash: str) -> list[Path]:
-    stem = target.name[: -len(target.suffix)] if target.suffix else target.name
+def _pending_path(target: Path, content_hash: str) -> Path:
+    """pending 候选的**唯一**路径：``<stem>.pending-<hash8>.md``。
+
+    用内容哈希命名而不是 ``.pending-2`` / ``.pending-3`` 递增：
+    同一份冲突内容重复归档时必须命中同一文件，第二次调用零新增。
+    不同内容的冲突各自一个文件，这是它们本来就该分开。
+    """
     suffix = target.suffix or ".md"
-    candidates = [target.with_name(f"{stem}{PENDING_SUFFIX}{suffix}")]
-    candidates.append(target.with_name(f"{stem}{PENDING_SUFFIX}-{content_hash[:8]}{suffix}"))
-    for index in range(2, MAX_PENDING_ATTEMPTS + 1):
-        candidates.append(
-            target.with_name(f"{stem}{PENDING_SUFFIX}-{content_hash[:8]}-{index}{suffix}")
-        )
-    return candidates
+    return target.with_name(f"{target.stem}{PENDING_SUFFIX}-{content_hash[:8]}{suffix}")
 
 
 # --- 主入口 -----------------------------------------------------------------
@@ -515,7 +521,12 @@ def write_note(
     config: AppConfig,
     dry_run: bool = False,
 ) -> WriteResult:
-    """把蒸馏笔记写进 vault。返回实际发生的动作，绝不静默成功。"""
+    """把蒸馏笔记写进 vault。返回实际发生的动作，绝不静默成功。
+
+    「同一来源会话只有一篇正式笔记」是硬契约：若该 ``state_key`` 此前已写入过
+    另一个路径（用户改了标题或项目名），本次**不会**再 created 第二篇，
+    而是落一份指向旧笔记的 pending 候选等人工确认。
+    """
     project = safe_component(note.project, "项目名")
     title = safe_component(note.title, "标题")
 
@@ -529,17 +540,36 @@ def write_note(
     today = _today().isoformat()
 
     state = _load_state(config)
+    previous = _previous_path(config, state, state_key)
+
+    # 同会话此前已归档到别的路径，且那篇还在：不新增正式笔记
+    if previous is not None and previous != target and previous.exists():
+        if _hash_of(previous) == content_hash:
+            return WriteResult(previous, ACTION_SKIPPED, content_hash, dry_run)
+        return _write_pending(
+            target,
+            previous,
+            content_hash,
+            note,
+            session,
+            config,
+            dry_run,
+            PENDING_REASON_MOVED,
+        )
 
     if target.exists():
         if not _is_ours(target, state_key):
-            return _write_pending(target, content_hash, session, config, dry_run)
-        try:
-            previous_hash = parse_frontmatter(target.read_text(encoding="utf-8"))[0].get(
-                "内容哈希"
+            return _write_pending(
+                target,
+                target,
+                content_hash,
+                note,
+                session,
+                config,
+                dry_run,
+                PENDING_REASON_OCCUPIED,
             )
-        except (SchemaError, OSError, UnicodeDecodeError):
-            return _write_pending(target, content_hash, session, config, dry_run)
-        if previous_hash == content_hash:
+        if _hash_of(target) == content_hash:
             return WriteResult(target, ACTION_SKIPPED, content_hash, dry_run)
         created = _created_of(target, today)
         text = render_note(note, session, content_hash, created, today, title, project)
@@ -561,6 +591,35 @@ def write_note(
     return WriteResult(target, ACTION_CREATED, content_hash, False)
 
 
+def _previous_path(
+    config: AppConfig, state: Mapping[str, Any], state_key: str
+) -> Path | None:
+    """state.json 里该 state_key 上次落盘的路径（越界则视为没有）。"""
+    entries = state.get("entries")
+    if not isinstance(entries, Mapping):
+        return None
+    entry = entries.get(state_key)
+    if not isinstance(entry, Mapping):
+        return None
+    raw = entry.get("path")
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    try:
+        return ensure_inside_vault(config.vault, config.vault / raw)
+    except ConfigError:
+        return None
+
+
+def _hash_of(existing: Path) -> str | None:
+    """读取文件里记录的 ``内容哈希``；读不了就返回 None（当作内容已变）。"""
+    try:
+        fields, _ = parse_frontmatter(existing.read_text(encoding="utf-8"))
+    except (SchemaError, OSError, UnicodeDecodeError):
+        return None
+    value = fields.get("内容哈希")
+    return value if isinstance(value, str) and value else None
+
+
 def _created_of(existing: Path, fallback: str) -> str:
     try:
         fields, _ = parse_frontmatter(existing.read_text(encoding="utf-8"))
@@ -572,35 +631,54 @@ def _created_of(existing: Path, fallback: str) -> str:
 
 def _write_pending(
     target: Path,
+    blocked_by: Path,
     content_hash: str,
+    note: DistilledNote,
     session: NormalizedSession,
     config: AppConfig,
     dry_run: bool,
+    reason: str,
 ) -> WriteResult:
-    """目标被用户笔记占用：只写 pending，绝不覆盖。"""
-    chosen: Path | None = None
-    for candidate in _pending_candidates(target, content_hash):
-        ensure_inside_vault(config.vault, config.archive_dir)
-        ensure_inside_vault(config.vault, candidate)
-        ensure_inside_vault(config.archive_dir, candidate)
-        if not candidate.exists():
-            chosen = candidate
-            break
-    if chosen is None:
+    """目标位置不可写正式笔记：只落一份**可合并的 Markdown 候选**，绝不覆盖原文件。
+
+    pending 不再写 JSON 指针——JSON 混在 ``.md`` 后缀里既不是笔记也不是数据，
+    validator 会把它判成坏 frontmatter。现在 pending 就是一篇完整笔记：
+    完整 frontmatter + 完整正文 + 顶部标注「待合并到 + 为什么」。
+    """
+    ensure_inside_vault(config.vault, config.archive_dir)
+    chosen = _pending_path(target, content_hash)
+    ensure_inside_vault(config.vault, chosen)
+    ensure_inside_vault(config.archive_dir, chosen)
+
+    if chosen.exists():
+        # 同一份冲突内容重复归档：返回既有 pending，零新增、零覆盖
+        if _pending_matches(chosen, content_hash, state_key_of(session)):
+            return WriteResult(chosen, ACTION_PENDING, content_hash, dry_run)
+        # 同名但内容不是本次归档（手工文件或哈希前缀冲突）：停下来，不猜、不覆盖
         raise ConfigError(
-            f"目标笔记被占用且 pending 名额已用尽，为避免覆盖已停止写入：{target}"
+            "同名 pending 已存在且内容不是本次归档（可能是手工文件或哈希前缀冲突），"
+            f"为避免混淆已停止写入：{chosen}"
         )
+
     if dry_run:
         return WriteResult(chosen, ACTION_PENDING, content_hash, True)
-    payload = {
-        "待合并到": target.name,
-        "内容哈希": content_hash,
-        "来源": session.source,
-        "状态键": state_key_of(session),
-        "生成时间": datetime.now(timezone.utc).isoformat(),
-        "提示": "目标笔记已存在且不是本工具生成，本文件仅为候选内容，未覆盖原笔记。",
-    }
-    _write_text_atomic(chosen, json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
+
+    today = _today().isoformat()
+    try:
+        blocked_display = blocked_by.relative_to(config.vault).as_posix()
+    except ValueError:
+        blocked_display = blocked_by.name
+    text = render_pending(
+        note,
+        session,
+        content_hash,
+        today,
+        blocked_display,
+        reason,
+        safe_component(note.title, "标题"),
+        safe_component(note.project, "项目名"),
+    )
+    _write_text_atomic(chosen, text)
     _append_audit(
         config,
         {
@@ -610,10 +688,52 @@ def _write_pending(
             "content_hash": content_hash,
             "source": session.source,
             "状态键": state_key_of(session),
-            "blocked_by": str(target),
+            "blocked_by": str(blocked_by),
+            "reason": reason,
         },
     )
     return WriteResult(chosen, ACTION_PENDING, content_hash, False)
+
+
+PENDING_REASON_OCCUPIED: Final = "目标笔记已存在且不是本工具生成，原笔记未被覆盖。"
+PENDING_REASON_MOVED: Final = "同一来源会话此前已归档到另一路径（标题或项目名变化），未自动移动原笔记。"
+
+
+def _pending_matches(path: Path, content_hash: str, state_key: str) -> bool:
+    """既有 pending 是否就是本次这份内容（内容哈希与状态键都对得上）。"""
+    try:
+        fields, _ = parse_frontmatter(path.read_text(encoding="utf-8"))
+    except (SchemaError, OSError, UnicodeDecodeError):
+        return False
+    return fields.get("内容哈希") == content_hash and fields.get("状态键") == state_key
+
+
+def render_pending(
+    note: DistilledNote,
+    session: NormalizedSession,
+    content_hash: str,
+    today: str,
+    blocked_display: str,
+    reason: str,
+    title: str | None = None,
+    project: str | None = None,
+) -> str:
+    """渲染 pending 候选：完整 Markdown，顶部标出「待合并到」与原因。
+
+    ``blocked_display`` 必须是 **相对 vault 的路径**：笔记会进 Obsidian，
+    里面写绝对路径等于把本机目录结构抄进知识库。
+    """
+    full = render_note(note, session, content_hash, today, today, title, project)
+    head, _, body = full.partition("\n\n")
+    marker = "\n".join(
+        [
+            f"> **待合并到**：`{blocked_display}`",
+            f"> **原因**：{reason}",
+            "> **处理**：确认无误后把本文件内容并入目标笔记，再删除本文件；"
+            "本工具不会自动合并、移动或删除任何笔记。",
+        ]
+    )
+    return head + "\n\n" + marker + "\n\n" + body
 
 
 def _record_success(
