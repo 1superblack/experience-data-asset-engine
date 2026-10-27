@@ -107,7 +107,7 @@ state_key = sha256(f"{source}:{session_id}").hexdigest()   # 64 位十六进制
 | `summary` | string | 是 | 一句话结论 |
 | `background` | string | 是 | 目标与背景，写「为什么要做」 |
 | `diagnosis` | string[] | 是 | 诊断事实，只写查明的东西，不写推测；可空数组 |
-| `decisions` | object[] | 是 | **不能为空**。每项 `decision` + `reason` 都不能为空；**所有 decisions 汇总后至少要有一条非空 `rejected`** |
+| `decisions` | object[] | 是 | **不能为空**。每项 `decision` + `reason` 都不能为空；**所有 decisions 汇总后至少要有一条有效 `rejected`**（可写 `无备选：<实质原因>`，原因 >= 8 个有效字符且非占位话术） |
 | `evidence` | string[] | 是 | 可复核的证据或短引用，**不允许整段粘贴对话** |
 | `reusable` | string[] | 是 | 可复用经验 |
 | `risks` | string[] | 是 | 风险；可空数组 |
@@ -151,10 +151,23 @@ input_messages == kept_messages + system_noise + tool_noise + duplicate_topics +
 `rejected` 不是可选装饰。记录「本来还能怎么做、为什么没这么做」，是知识笔记与会议纪要的
 分界线：它保存的是判断边界，而不是结论本身。因此校验规则是：
 
-> 所有 `decisions` 汇总后，至少要有 **一条** 非空 `rejected`，否则整份笔记被判为不合格。
+> 所有 `decisions` 汇总后，至少要有 **一条有效** `rejected`，否则整份笔记被判为不合格。
 
 单个决策可以没有 `rejected`（有些小步决策确实没有备选），但整份笔记一条都没有，说明蒸馏端
 没有真的还原当时的取舍过程。这条规则是硬性的，不允许用空数组绕过。
+
+**确实没有备选时**，允许写豁免项 `无备选：<实质原因>`（中文冒号或半角冒号都接受），
+但原因必须实质，否则等于绕过校验：
+
+| 判定 | 例子 |
+|---|---|
+| ✅ 通过 | `无备选：上游接口只提供一个可用端点，且没有可替换实现。` |
+| ❌ 失败 | `无备选：`（没有原因） |
+| ❌ 失败 | `无备选：原因未知` / `无备选：不适用` / `无备选：暂无` / `无备选：略` / `无备选：TODO` / `无备选：待定` |
+| ❌ 失败 | 冒号后不足 **8 个有效字符**（不计空白） |
+
+选择「允许豁免但要求理由」而不是「强制编造备选」，是因为后者会逼模型为了过校验虚构被否决方案，
+反而破坏知识真实性。豁免项同样算满足「至少一条有效 `rejected`」。
 
 `diagnosis` / `evidence` / `reusable` / `risks` / `todo` 允许空数组，但渲染时章节标题
 必须存在，空的写「无」。允许为空是因为「这次没有风险」「没有待办」是合法结论。
@@ -187,7 +200,7 @@ input_messages == kept_messages + system_noise + tool_noise + duplicate_topics +
 - `session_id` 含路径分隔符、控制字符、`.`/`..`、绝对路径、超长或为空。
 - `project` 含路径分隔符、控制字符、隐藏名、保留名、非法字符、以空格或点结尾、超长或为空。
 - `title` 含控制字符（换行/制表符/NUL）、非法字符、隐藏名、保留名、以空格或点结尾、超长。
-- 所有 `decisions` 的 `rejected` 都为空。
+- 所有 `decisions` 的 `rejected` 都为空（或只写了「无备选：」而不给原因、或原因只是「原因未知 / 不适用 / 暂无」等占位话术）。
 - `noise_report` 缺计数器、有负数、`kept_messages > input_messages`。
 
 ## 5. 版本策略

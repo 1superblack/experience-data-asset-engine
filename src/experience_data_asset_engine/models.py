@@ -367,6 +367,25 @@ class NormalizedSession:
             cwd=self.cwd,
         )
 
+    def with_title(self, title: str) -> "NormalizedSession":
+        """派生一个只替换标题的会话。
+
+        标题会进 staging 与模型提示词，降噪阶段脱敏后用它替换，
+        但**原会话对象不得修改**（只读语义）。
+        """
+        return NormalizedSession(
+            schema_version=self.schema_version,
+            source=self.source,
+            session_id=self.session_id,
+            title=title,
+            created_at=self.created_at,
+            updated_at=self.updated_at,
+            messages=self.messages,
+            metadata=dict(self.metadata),
+            model=self.model,
+            cwd=self.cwd,
+        )
+
 
 # --- 蒸馏笔记 ---------------------------------------------------------------
 
@@ -415,6 +434,62 @@ class NoiseReport:
 
     def to_dict(self) -> dict[str, int]:
         return {name: getattr(self, name) for name in NOISE_COUNTERS}
+
+
+#: 「无备选」豁免的固定前缀。中文冒号与半角冒号都接受，方便模型输出。
+NO_ALTERNATIVE_PREFIXES = ("无备选：", "无备选:")
+
+#: 豁免理由的最少有效字符数（不计空白）。
+MIN_NO_ALTERNATIVE_REASON_CHARS = 8
+
+#: 占位式话术：写了等于没写，一律不算豁免。
+_NO_ALTERNATIVE_PLACEHOLDERS = frozenset(
+    {
+        "原因未知",
+        "未知",
+        "不知道",
+        "不适用",
+        "暂无",
+        "略",
+        "todo",
+        "tbd",
+        "无",
+        "没有",
+        "同上",
+        "见上",
+        "略过",
+        "不填",
+        "待定",
+        "待补",
+    }
+)
+
+
+def split_no_alternative(item: str) -> str | None:
+    """``item`` 以「无备选：」开头时返回冒号后的理由，否则返回 ``None``。"""
+    text = item.strip()
+    for prefix in NO_ALTERNATIVE_PREFIXES:
+        if text.startswith(prefix):
+            return text[len(prefix) :].strip()
+    return None
+
+
+def is_rejected_item_acceptable(item: str) -> bool:
+    """单条 ``rejected`` 是否构成「有效的被否决方案」。
+
+    A 策略（硬化版）：允许写「无备选：<原因>」，避免模型为了过校验编造被否决方案；
+    但原因必须实质——至少 ``MIN_NO_ALTERNATIVE_REASON_CHARS`` 个有效字符，
+    且不是「原因未知 / 不适用 / 暂无」这类占位话术。普通项非空即可。
+    """
+    if not isinstance(item, str) or not item.strip():
+        return False
+    reason = split_no_alternative(item)
+    if reason is None:
+        return True
+    compact = re.sub(r"\s+", "", reason)
+    if len(compact) < MIN_NO_ALTERNATIVE_REASON_CHARS:
+        return False
+    return compact.lower() not in _NO_ALTERNATIVE_PLACEHOLDERS
 
 
 @dataclass(frozen=True, slots=True)
@@ -585,11 +660,16 @@ class DistilledNote:
                     issues.append(str(exc))
             decisions = tuple(built)
             if len(built) == len(raw_decisions) and built and not any(
-                decision.rejected for decision in built
+                is_rejected_item_acceptable(item)
+                for decision in built
+                for item in decision.rejected
             ):
                 issues.append(
-                    "decisions 至少要有一条非空 rejected（被否决方案）："
-                    "只说选了什么、不说否掉了什么，无法复现当时的判断边界"
+                    "decisions 至少要有一条有效的 rejected（被否决方案）："
+                    "只说选了什么、不说否掉了什么，无法复现当时的判断边界。"
+                    "确实没有备选时写「无备选：<实质原因>」，"
+                    f"原因不少于 {MIN_NO_ALTERNATIVE_REASON_CHARS} 个有效字符，"
+                    "且不能用「原因未知 / 不适用 / 暂无」等占位话术"
                 )
 
         noise_report: NoiseReport | None = None

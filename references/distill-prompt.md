@@ -29,8 +29,10 @@
    risks、todo、noise_report、content_volatility、status、review_after，
    以及 title、project、schema_version。
 3. 每个 decision 必须有非空 reason（为什么这么选）。
-4. 所有 decisions 汇总后，至少要有 1 条非空 rejected（被否决方案：本来还能怎么做、为什么没做）。
-   如果当时确实只有一条路，就写「无备选：原因…」。
+4. 所有 decisions 汇总后，至少要有 1 条有效的 rejected（被否决方案：本来还能怎么做、为什么没做）。
+   如果当时确实只有一条路，就写「无备选：<实质原因>」——原因不少于 8 个有效字符，
+   且不能用「原因未知」「不适用」「暂无」「略」「TODO」这类占位话术；
+   宁可承认没有备选，也不要为了过校验编造被否决方案。
 5. summary 是一句话结论，不能替代其它字段；只写摘要的输出会被判为不合格。
 6. evidence 只放可复核的证据或短引用，禁止整段粘贴对话原文。
 7. content_volatility 取 stable / evolving / volatile / progress 之一。
@@ -53,7 +55,7 @@
 | `summary` | 一句话结论 |
 | `background` | 目标与背景 |
 | `diagnosis` | 诊断事实数组（可空） |
-| `decisions` | 至少 1 条；每条 `decision` + `reason` 非空；**全体汇总至少 1 条非空 `rejected`** |
+| `decisions` | 至少 1 条；每条 `decision` + `reason` 非空；**全体汇总至少 1 条有效 `rejected`**（可写 `无备选：<实质原因>`，原因 >= 8 个有效字符且非占位话术） |
 | `evidence` | 可复核证据数组，禁止整段原文 |
 | `reusable` | 可复用经验数组（可空） |
 | `risks` | 风险数组（可空） |
@@ -93,7 +95,7 @@
 | `choices` 缺失或为空、`message.content` 为空 | `DistillationError` |
 | `finish_reason == "length"`（截断） | `DistillationError` |
 | 内容不是合法 JSON | `DistillationError`（报行号列号，不回显内容） |
-| 缺字段、只有 summary、类型错、枚举越界、`rejected` 全空 | `SchemaError` |
+| 缺字段、只有 summary、类型错、枚举越界、`rejected` 全空或只剩占位话术的「无备选：」 | `SchemaError` |
 
 异常消息里只出现错误类型、状态码、行列号，不出现密钥、完整响应或完整会话。
 

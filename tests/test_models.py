@@ -15,7 +15,9 @@ from experience_data_asset_engine.models import (
     Message,
     NoiseReport,
     NormalizedSession,
+    is_rejected_item_acceptable,
     parse_iso_datetime,
+    split_no_alternative,
     state_key,
 )
 
@@ -505,3 +507,78 @@ def test_distilled_note_accepts_one_non_empty_rejected():
         {"decision": "方案 B", "reason": "理由 B", "rejected": ["方案 C：成本过高"]},
     ]
     assert DistilledNote.from_dict(payload).decisions[1].rejected == ("方案 C：成本过高",)
+
+
+# --- 被否决方案：A 策略（允许「无备选：原因」，但原因必须实质） ----------------
+
+
+def test_no_alternative_with_substantive_reason_is_accepted():
+    payload = valid_note_payload()
+    payload["decisions"] = [
+        {
+            "decision": "只用上游唯一端点",
+            "reason": "上游只暴露一个入口",
+            "rejected": ["无备选：上游接口只提供一个可用端点，且没有可替换实现。"],
+        }
+    ]
+    note = DistilledNote.from_dict(payload)
+    assert note.decisions[0].rejected[0].startswith("无备选：")
+
+
+def test_no_alternative_accepts_halfwidth_colon():
+    payload = valid_note_payload()
+    payload["decisions"] = [
+        {
+            "decision": "只走 HTTP",
+            "reason": "对端没有 gRPC",
+            "rejected": ["无备选: 对端只暴露 HTTP 接口，没有 gRPC 实现"],
+        }
+    ]
+    assert DistilledNote.from_dict(payload).decisions[0].rejected
+
+
+@pytest.mark.parametrize(
+    "item",
+    [
+        "无备选：",
+        "无备选:",
+        "无备选：原因未知",
+        "无备选：不适用",
+        "无备选：暂无",
+        "无备选：略",
+        "无备选：TODO",
+        "无备选：待定",
+        "无备选：太短",  # 有效字符不足 8 个
+    ],
+)
+def test_no_alternative_placeholders_are_rejected(item):
+    payload = valid_note_payload()
+    payload["decisions"] = [
+        {"decision": "方案 A", "reason": "理由 A", "rejected": [item]},
+    ]
+    with pytest.raises(SchemaError, match="rejected"):
+        DistilledNote.from_dict(payload)
+
+
+def test_blanket_no_alternative_cannot_save_all_empty_rejected():
+    """写成占位话术的「无备选」不算数，仍然整体失败。"""
+    payload = valid_note_payload()
+    payload["decisions"] = [
+        {"decision": "方案 A", "reason": "理由 A", "rejected": ["无备选：不适用"]},
+        {"decision": "方案 B", "reason": "理由 B", "rejected": []},
+    ]
+    with pytest.raises(SchemaError, match="rejected"):
+        DistilledNote.from_dict(payload)
+
+
+def test_rejected_acceptance_helper_handles_blank_and_non_string():
+    assert is_rejected_item_acceptable("") is False
+    assert is_rejected_item_acceptable("   ") is False
+    assert is_rejected_item_acceptable(None) is False  # type: ignore[arg-type]
+    assert is_rejected_item_acceptable("方案 C：成本过高") is True
+
+
+def test_split_no_alternative_only_matches_the_prefix():
+    assert split_no_alternative("无备选：上游只有一个端点") == "上游只有一个端点"
+    assert split_no_alternative("无备选:上游只有一个端点") == "上游只有一个端点"
+    assert split_no_alternative("方案 C：成本过高") is None

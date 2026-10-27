@@ -307,6 +307,124 @@ def test_plain_text_is_not_redacted():
     assert count == 0
 
 
+def test_redact_sensitive_tolerates_non_string_input():
+    assert redact_sensitive(None) == ("", 0)  # type: ignore[arg-type]
+
+
+# --- 截断的私钥 -------------------------------------------------------------
+
+
+def test_truncated_private_key_is_redacted_to_the_end():
+    """缺少 END 的残片同样要吃掉，否则 base64 还能被拼回去。"""
+    text = (
+        "配置如下：\n-----BEGIN RSA PRIVATE KEY-----\n"
+        "MIIEowIBAAKCAQEA1234567890abcdef"
+    )
+    redacted, count = redact_sensitive(text)
+    assert "MIIEowIBAAKCAQEA" not in redacted
+    assert count == 1
+    assert redacted == "配置如下：\n" + REDACTED
+
+
+@pytest.mark.parametrize(
+    "header",
+    [
+        "PRIVATE KEY",
+        "RSA PRIVATE KEY",
+        "OPENSSH PRIVATE KEY",
+        "EC PRIVATE KEY",
+        "DSA PRIVATE KEY",
+    ],
+)
+def test_private_key_headers_are_all_covered(header):
+    text = f"-----BEGIN {header}-----\nAAAABBBBCCCC\n-----END {header}-----"
+    redacted, count = redact_sensitive(text)
+    assert redacted == REDACTED
+    assert count == 1
+
+
+def test_multiple_private_key_blocks_are_counted_separately():
+    block = "-----BEGIN PRIVATE KEY-----\nAAAA\n-----END PRIVATE KEY-----"
+    redacted, count = redact_sensitive(f"{block}\n中间的文字\n{block}")
+    assert count == 2
+    assert "AAAA" not in redacted
+
+
+# --- 重叠规则不得重复计数 ---------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "text, secret",
+    [
+        ("Authorization: Bearer abcdef1234567890", "abcdef1234567890"),
+        ("Cookie: session=demo-session-value-1234", "demo-session-value-1234"),
+        ("password=sk-live-1234567890abcdef", "sk-live-1234567890abcdef"),
+        ("api_key=sk-live-1234567890abcdef", "sk-live-1234567890abcdef"),
+        ("Bearer abcdef1234567890", "abcdef1234567890"),
+        ("sk-live-1234567890abcdef", "sk-live-1234567890abcdef"),
+    ],
+)
+def test_overlapping_rules_count_exactly_once(text, secret):
+    redacted, count = redact_sensitive(text)
+    assert secret not in redacted
+    assert count == 1
+
+
+# --- 标题脱敏 ---------------------------------------------------------------
+
+
+def make_session_with_title(title: str, texts: list[str] | None = None) -> NormalizedSession:
+    return NormalizedSession.from_dict(
+        {
+            "schema_version": 1,
+            "source": "manual",
+            "session_id": "s-title",
+            "title": title,
+            "created_at": "2026-10-27T09:00:00+08:00",
+            "updated_at": "2026-10-27T09:10:00+08:00",
+            "messages": [msg("user", t) for t in (texts or ["正常的一条需求描述。"])],
+            "metadata": {},
+        }
+    )
+
+
+@pytest.mark.parametrize(
+    "title, secret",
+    [
+        ("排查 sk-live-abcdef1234567890 的问题", "sk-live-abcdef1234567890"),
+        ("Authorization: Bearer abcdef1234567890", "abcdef1234567890"),
+        ("password=Hunter2Hunter2 登录失败", "Hunter2Hunter2"),
+        ("cookie: session=demo-session-value-1234", "demo-session-value-1234"),
+    ],
+)
+def test_title_is_redacted_and_counted(title, secret):
+    session = make_session_with_title(title)
+    cleaned, report = filter_noise(session)
+    assert secret not in cleaned.title
+    assert REDACTED in cleaned.title
+    assert report.redactions == 1
+
+
+def test_title_redaction_does_not_touch_original_session():
+    original = "sk-live-abcdef1234567890 相关的排查"
+    session = make_session_with_title(original)
+    cleaned, _ = filter_noise(session)
+    assert session.title == original
+    assert cleaned.title != original
+    assert cleaned is not session
+
+
+def test_title_redaction_counts_together_with_messages():
+    session = make_session_with_title(
+        "password=Hunter2Hunter2 那次",
+        ["另外一个 token=beta456789 也漏了"],
+    )
+    cleaned, report = filter_noise(session)
+    assert report.redactions == 2
+    assert REDACTED in cleaned.title
+    assert REDACTED in cleaned.messages[0].text
+
+
 def test_no_secret_survives_in_kept_messages():
     session = load_normalized_json(FIXTURES / "noisy-session.json")
     cleaned, report = filter_noise(session)

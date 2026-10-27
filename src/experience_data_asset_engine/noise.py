@@ -6,7 +6,10 @@
 2. 可审计：每条丢弃消息只进一个计数器，满足
    ``input_messages == kept + system_noise + tool_noise + duplicate_topics + dead_ends``。
 3. 失败关闭：宁可少留，也不把系统上下文、工具大输出、凭据送进蒸馏。
-4. 脱敏按**实际替换次数**计数，并按规则顺序执行，避免同一段文本被重复计数。
+4. 脱敏按**实际替换次数**计数，并按「先字段级/整行、后裸 token」的顺序执行，
+   避免同一段文本被两条重叠规则各算一次。
+5. 标题与消息同等对待：``session.title`` 也会进 staging 与模型提示词，
+   必须一起脱敏，且脱敏结果只写进派生会话，原对象不动。
 
 四层：
 
@@ -91,8 +94,13 @@ _DUPLICATE_COMPARE_CHARS: Final = 400
 
 # --- 安全噪音 ---------------------------------------------------------------
 
+#: 规则顺序即计数口径：**先字段级/整行规则，再裸 token 规则**。
+#:
+#: 顺序错了会重复计数——``Authorization: Bearer x`` 若先被 bearer 规则替换，
+#: 剩下的 ``Authorization: [已脱敏]`` 又会被 authorization 规则整行替换一次，
+#: 同一个敏感字段算成 2 次，审计数字就虚高了。
 _REDACTION_RULES: Final = (
-    # PEM 私钥块必须最先处理，否则内部的 base64 会被后续规则切碎
+    # 1) PEM 私钥完整块必须最先处理，否则内部的 base64 会被后续规则切碎
     (
         re.compile(
             r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----.*?-----END [A-Z0-9 ]*PRIVATE KEY-----",
@@ -100,8 +108,10 @@ _REDACTION_RULES: Final = (
         ),
         REDACTED,
     ),
-    (re.compile(r"\bsk-[A-Za-z0-9_-]{12,}"), REDACTED),
-    (re.compile(r"(?i)\bbearer\s+[A-Za-z0-9._-]{8,}"), f"Bearer {REDACTED}"),
+    # 2) 截断的私钥：只有 BEGIN、没有 END。宁可把 BEGIN 之后全部吃掉，
+    #    也不能留下 base64 残片——残片照样能被拼回去。
+    (re.compile(r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[\s\S]*"), REDACTED),
+    # 3) 字段级/整行规则（必须先于裸 token 规则）
     (re.compile(r"(?i)\bcookie\s*:\s*[^\r\n]+"), f"Cookie: {REDACTED}"),
     (re.compile(r"(?i)\bauthorization\s*:\s*[^\r\n]+"), f"Authorization: {REDACTED}"),
     (
@@ -109,12 +119,17 @@ _REDACTION_RULES: Final = (
         rf"\1={REDACTED}",
     ),
     (
+        # 值的首个词若是 Bearer，说明真正的凭据在后面，让 bearer 规则去处理，
+        # 否则会把字段名连同 "Bearer" 一起吃掉、留下真正的令牌。
         re.compile(
             r"(?i)\b(api[_-]?key|access[_-]?token|refresh[_-]?token|token|secret|"
-            r"client[_-]?secret|secret[_-]?key)\s*[:=]\s*[\"']?[A-Za-z0-9._-]{6,}[\"']?"
+            r"client[_-]?secret|secret[_-]?key)\s*[:=]\s*[\"']?(?!bearer\b)[A-Za-z0-9._-]{6,}[\"']?"
         ),
         rf"\1={REDACTED}",
     ),
+    # 4) 裸 token 规则（最后执行，只兜没被字段级规则吃掉的孤立凭据）
+    (re.compile(r"(?i)\bbearer\s+[A-Za-z0-9._-]{8,}"), f"Bearer {REDACTED}"),
+    (re.compile(r"\bsk-[A-Za-z0-9_-]{12,}"), REDACTED),
 )
 
 
@@ -211,12 +226,20 @@ def _is_execution_noise(message: Message, text: str) -> bool:
 
 
 def filter_noise(session: NormalizedSession) -> tuple[NormalizedSession, NoiseReport]:
-    """四层降噪。返回 (新会话, 统计)，原会话保持不变。"""
+    """四层降噪。返回 (新会话, 统计)，原会话保持不变。
+
+    标题与消息同等对待：``session.title`` 同样会进 staging 与模型提示词，
+    因此**必须先脱敏再返回**，脱敏次数并入 ``redactions``。
+    """
     messages = session.messages
     kept: list[Message] = []
     kept_norms: list[str] = []
     system_noise = tool_noise = duplicate_topics = dead_ends = redactions = 0
     previous_norm: str | None = None
+
+    raw_title = session.title if isinstance(session.title, str) else ""
+    clean_title, title_redactions = redact_sensitive(raw_title)
+    redactions += title_redactions
 
     for message in messages:
         text = message.text if isinstance(message.text, str) else ""
@@ -247,4 +270,5 @@ def filter_noise(session: NormalizedSession) -> tuple[NormalizedSession, NoiseRe
         dead_ends=dead_ends,
         redactions=redactions,
     )
-    return session.with_messages(tuple(kept)), report
+    cleaned = session.with_messages(tuple(kept)).with_title(clean_title)
+    return cleaned, report

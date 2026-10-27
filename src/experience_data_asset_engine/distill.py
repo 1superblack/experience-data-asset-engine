@@ -52,8 +52,10 @@ DISTILL_CONTRACT: Final = """\
    risks、todo、noise_report、content_volatility、status、review_after，
    以及 title、project、schema_version。
 3. 每个 decision 必须有非空 reason（为什么这么选）。
-4. 所有 decisions 汇总后，至少要有 1 条非空 rejected（被否决方案：本来还能怎么做、为什么没做）。
-   如果当时确实只有一条路，就写「无备选：原因…」。
+4. 所有 decisions 汇总后，至少要有 1 条有效的 rejected（被否决方案：本来还能怎么做、为什么没做）。
+   如果当时确实只有一条路，就写「无备选：<实质原因>」——原因不少于 8 个有效字符，
+   且不能用「原因未知」「不适用」「暂无」「略」「TODO」这类占位话术；
+   宁可承认没有备选，也不要为了过校验编造被否决方案。
 5. summary 是一句话结论，不能替代其它字段；只写摘要的输出会被判为不合格。
 6. evidence 只放可复核的证据或短引用，禁止整段粘贴对话原文。
 7. content_volatility 取 stable / evolving / volatile / progress 之一。
@@ -113,7 +115,10 @@ def note_json_schema() -> dict[str, Any]:
             "decisions": {
                 "type": "array",
                 "minItems": 1,
-                "description": "所有 decisions 汇总后至少要有 1 条非空 rejected",
+                "description": (
+                    "所有 decisions 汇总后至少要有 1 条有效 rejected；"
+                    "无备选时写「无备选：<实质原因>」，原因 >= 8 个有效字符且不得是占位话术"
+                ),
                 "items": {
                     "type": "object",
                     "additionalProperties": False,

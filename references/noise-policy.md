@@ -60,21 +60,44 @@
 
 ### 1.4 安全噪音（redactions）
 
-按顺序替换，先命中的先替换，后续规则看到的是已替换文本，因此不会重复计数：
+**规则顺序即计数口径：先字段级/整行规则，再裸 token 规则。**
+
+按顺序替换，先命中的先替换，后续规则看到的是已替换文本：
 
 | 顺序 | 形态 | 结果 |
 |---|---|---|
-| 1 | `-----BEGIN … PRIVATE KEY----- … -----END … PRIVATE KEY-----` | `[已脱敏]` |
-| 2 | `sk-` 开头的长串（>= 12 位） | `[已脱敏]` |
-| 3 | `Bearer <token>` | `Bearer [已脱敏]` |
-| 4 | `Cookie: …` 整行 | `Cookie: [已脱敏]` |
-| 5 | `Authorization: …` 整行 | `Authorization: [已脱敏]` |
-| 6 | `password= / passwd= / pwd=` 后跟值 | `password=[已脱敏]` |
-| 7 | `api_key= / access_token= / refresh_token= / token= / secret= / client_secret= / secret_key=` | `键=[已脱敏]` |
+| 1 | `-----BEGIN … PRIVATE KEY----- … -----END … PRIVATE KEY-----` 完整块 | `[已脱敏]` |
+| 2 | 只有 `-----BEGIN … PRIVATE KEY-----`、缺 END 的**截断块** | 从 BEGIN 到文本末尾全部 `[已脱敏]` |
+| 3 | `Cookie: …` 整行 | `Cookie: [已脱敏]` |
+| 4 | `Authorization: …` 整行 | `Authorization: [已脱敏]` |
+| 5 | `password= / passwd= / pwd=` 后跟值 | `password=[已脱敏]` |
+| 6 | `api_key= / access_token= / refresh_token= / token= / secret= / client_secret= / secret_key=` | `键=[已脱敏]` |
+| 7 | 裸 `Bearer <token>` | `Bearer [已脱敏]` |
+| 8 | 裸 `sk-` 开头的长串（>= 12 位） | `[已脱敏]` |
 
-私钥必须排第一：否则内部的 base64 会被后续规则切碎，替换后残留片段还可能被当成普通文本留下。
+三条硬理由：
+
+- **私钥必须排第一**：否则内部的 base64 会被后续规则切碎，替换后残留片段还可能被当成普通文本留下。
+- **截断私钥宁可多吃**：只有 BEGIN 没有 END 时，从 BEGIN 一直替换到文本末尾。留 base64 残片等于没脱敏。
+- **字段级规则必须先于裸 token 规则**：否则 `Authorization: Bearer x` 会先被 Bearer 规则替换成
+  `Authorization: Bearer [已脱敏]`，再被 Authorization 规则整行替换一次，**同一个敏感字段算成 2 次**。
+  同理 `password=sk-…`、`api_key=sk-…` 也必须由字段级规则先收走，不能让 `sk-` 规则再算一遍。
+- 第 6 条组内对「值以 `Bearer` 开头」做了排除：真正的凭据在后半段，交给第 7 条处理，
+  否则会把字段名连同 `Bearer` 一起吃掉、把令牌留在原地。
 
 `redactions` 统计的是 **subn 的真实替换次数**，不是「命中了几条规则」，也不是「扫到了几个可疑词」。
+同一敏感字段因多条正则重叠被重复计数，会让审计里的「脱敏 N 处」高于实际敏感字段数。
+
+### 1.5 标题（session.title）
+
+标题**不是元数据，是正文**：它会原样进 `staging/<state_key>.request.md` 的「标题」行，
+也会进 provider 请求的 user message。所以：
+
+- `filter_noise` 对 `session.title` 同样执行 `redact_sensitive`，次数并入 `redactions`。
+- 返回的（派生）会话使用脱敏后的 title；**原 `NormalizedSession` 的 title 不变**。
+- staging 与 provider 提示词只允许读脱敏后的 title。
+- 不用 `session_id` 顶替标题，也不因为标题脱敏出问题就静默放行。
+
 
 ## 2. 判定优先级
 

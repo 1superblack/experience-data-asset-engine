@@ -72,6 +72,22 @@
   CLI 遇到链接环返回退出码 1，stderr 输出普通「错误: … outside vault」，不打印 traceback。
 - 探针文件名统一为 `.edae-probe-*.tmp`。
 
+### 修复（Gate 2 复审）
+
+- **标题不再绕过脱敏**：`filter_noise` 对 `session.title` 执行 `redact_sensitive`，次数并入
+  `redactions`，派生会话使用脱敏后的 title；staging 的「标题」行与 provider 提示词只能读到
+  脱敏值，原 `NormalizedSession` 保持不变。此前标题里的 `sk-*`、口令、`Bearer` 会原样进入
+  `staging/<state_key>.request.md` 与模型请求。
+- **截断私钥也脱敏**：原规则只匹配完整的 `BEGIN … END` 块，缺 END 的残片会被原样保留。
+  现新增一条「从 BEGIN 到文本末尾」的规则，宁可多吃也不留 base64 残片；覆盖
+  `PRIVATE KEY` / `RSA` / `OPENSSH` / `EC` / `DSA` 等标题。
+- **重叠规则不再重复计数**：规则顺序调整为「先字段级/整行，再裸 token」——
+  `Authorization: Bearer x` 从计 2 次改为计 1 次；`password=sk-…`、`api_key=sk-…` 同理。
+  `api_key/token/...` 组内对「值以 `Bearer` 开头」做排除，避免把字段名吃掉却留下真令牌。
+- **被否决方案改为 A 策略（硬化版）**：允许写 `无备选：<实质原因>`，但原因须 >= 8 个有效字符
+  且不得是「原因未知 / 不适用 / 暂无 / 略 / TODO / 待定」等占位话术；占位写法仍然整体判不合格。
+  选 A 而不是强制给备选，是因为后者会逼模型虚构被否决方案，破坏知识真实性。
+
 ### 已知限制
 
 - **尚无写入 vault、检索过滤、复核与打包发布能力**：`archive` / `validate` / `status` /

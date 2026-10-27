@@ -221,6 +221,45 @@ def test_staging_contains_redacted_text_not_secret(base_config):
     assert REDACTED in text
 
 
+def titled_secret_session() -> NormalizedSession:
+    """标题里带凭据：标题同样会进 staging 与模型提示词，必须一起脱敏。"""
+    return NormalizedSession.from_dict(
+        {
+            "schema_version": 1,
+            "source": "manual",
+            "session_id": "s-title-secret",
+            "title": f"排查 api_key={SECRET} 泄漏",
+            "created_at": "2026-10-27T09:00:00+08:00",
+            "updated_at": "2026-10-27T09:10:00+08:00",
+            "messages": [{"role": "user", "text": "标题里的密钥也要挡住。", "kind": "message"}],
+            "metadata": {},
+        }
+    )
+
+
+def test_staging_title_is_redacted(base_config):
+    with pytest.raises(DistillationRequired) as err:
+        prepare_distillation(titled_secret_session(), base_config)
+
+    text = err.value.staging_path.read_text(encoding="utf-8")
+    assert SECRET not in text
+    title_line = next(line for line in text.splitlines() if line.startswith("- 标题: "))
+    assert REDACTED in title_line
+
+
+def test_provider_prompt_redacts_title_secret(base_config, monkeypatch):
+    monkeypatch.setenv("EDAE_API_KEY", "sk-test-only")
+    with FakeProvider(ok_responder) as provider:
+        prepare_distillation(
+            titled_secret_session(), with_provider(base_config, provider.base_url)
+        )
+
+    assert provider.requests, "假模型服务没有收到请求"
+    body = json.dumps(provider.requests[0]["body"], ensure_ascii=False)
+    assert SECRET not in body
+    assert REDACTED in body
+
+
 def test_staging_schema_lists_noise_counters(base_config):
     with pytest.raises(DistillationRequired) as err:
         prepare_distillation(load_normalized_json(SESSION), base_config)

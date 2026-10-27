@@ -52,7 +52,8 @@ metadata:
 2. 用 `adapters` 把来源会话标准化为 `NormalizedSession`（字段见
    `references/output-schema.md`）。
 3. `filter_noise(session)` 做四层降噪：系统上下文、工具输出、重复主题、死路短句被丢弃，
-   凭据替换为 `[已脱敏]`；返回新会话 + 7 项统计（口径见 `references/noise-policy.md`）。
+   凭据替换为 `[已脱敏]`（**会话标题与消息同等对待，一起脱敏**）；
+   返回新会话 + 7 项统计（口径见 `references/noise-policy.md`）。
 4. `prepare_distillation(session, config)` 产出 `DistilledNote`：
    - 没配模型：只在 `staging/` 写 `<state_key>.request.md` 与 `.schema.json`，
      抛 `DistillationRequired`（退出码 3），由 Agent 或人工补完；
@@ -79,7 +80,8 @@ python scripts/cli.py doctor --vault /path/to/vault
 - **不删除**：任何命令都不删除 Markdown；过期只做检索端过滤。
 - **不出 vault**：所有写入限制在 vault 与归档子目录内，路径逃逸一律失败关闭。
 - **session_id 不进路径**：幂等键统一用 `sha256(source + ":" + session_id)`。
-- **不存凭据**：API Key 只从环境变量读取，不落盘；敏感值一律替换为 `[已脱敏]`。
+- **不存凭据**：API Key 只从环境变量读取，不落盘；敏感值一律替换为 `[已脱敏]`，
+  标题、staging 请求、provider 提示词三处口径一致。
 - **失败关闭**：缺依赖、缺字段、来源格式不认识时报错退出，不降级为「原文照抄」。
 
 ## Reference 路由
