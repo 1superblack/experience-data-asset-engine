@@ -102,13 +102,59 @@ class AppConfig:
 # --- 路径边界 ---------------------------------------------------------------
 
 
-def _resolve_for_boundary(path: Path) -> Path:
-    """解析真实路径；解析失败（损坏的符号链接、链接环）一律失败关闭。"""
+MAX_SYMLINK_HOPS = 32
+
+
+def _link_target(link: Path) -> Path:
+    target = Path(os.readlink(link))
+    return target if target.is_absolute() else link.parent / target
+
+
+def _assert_no_symlink_loop(path: Path) -> None:
+    """显式走一遍符号链接链，成环或层数异常即失败关闭。
+
+    非严格 ``resolve()`` 在 Windows 上遇到链接环会**静默**返回环本身而不是抛错，
+    所以不能只靠 resolve 的异常来判断。这里逐跳 ``readlink``，逐级检查每个路径组件。
+    """
+    for candidate in reversed([Path(path), *Path(path).parents]):
+        if not candidate.is_symlink():
+            continue
+        seen: set[str] = set()
+        current = candidate
+        for _ in range(MAX_SYMLINK_HOPS):
+            key = os.path.normcase(str(current))
+            if key in seen:
+                raise ConfigError(f"检测到符号链接环，拒绝访问（outside vault）: {candidate}")
+            seen.add(key)
+            try:
+                current = _link_target(current)
+            except OSError as exc:
+                raise ConfigError(
+                    f"无法读取符号链接，拒绝访问（outside vault）: {current}（{exc}）"
+                ) from exc
+            if not current.is_symlink():
+                break
+        else:
+            raise ConfigError(
+                f"符号链接层数超过 {MAX_SYMLINK_HOPS} 层，拒绝访问（outside vault）: {candidate}"
+            )
+
+
+def resolve_safely(path: Path) -> Path:
+    """边界判断与用户输入路径的唯一解析入口。
+
+    捕获 ``OSError``（损坏链接、Windows 上 WinError 1921）与 ``RuntimeError``
+    （部分平台/版本上的 ``Symlink loop``），并且额外做一次显式链接环检测，
+    三者统一转成 ``ConfigError``——绝不让运行时异常漏到 CLI。
+    """
+    target = Path(path)
+    _assert_no_symlink_loop(target)
     try:
-        return Path(path).resolve()
-    except OSError as exc:
+        return target.resolve()
+    except (OSError, RuntimeError) as exc:
         raise ConfigError(
-            f"无法解析路径（可能是损坏的符号链接），拒绝访问（outside vault）: {path}（{exc}）"
+            f"无法解析路径（符号链接损坏或链接环），"
+            f"拒绝访问（outside vault）: {target}（{exc}）"
         ) from exc
 
 
@@ -116,10 +162,10 @@ def ensure_inside_vault(base: Path, target: Path) -> Path:
     """确认 target 解析后仍在 base 内，返回解析后的绝对路径。
 
     符号链接会先被解析，因此「通过符号链接跳到 vault 外」同样会被拒绝。
-    解析本身失败时也抛 ``ConfigError``，不允许把 ``OSError`` 漏给调用方。
+    解析本身失败（损坏链接、链接环）时也抛 ``ConfigError``。
     """
-    base_resolved = _resolve_for_boundary(base)
-    target_resolved = _resolve_for_boundary(target)
+    base_resolved = resolve_safely(base)
+    target_resolved = resolve_safely(target)
     if target_resolved.is_relative_to(base_resolved):
         return target_resolved
     raise ConfigError(f"拒绝访问 vault 之外的路径（outside vault）: {target}")
@@ -134,7 +180,7 @@ def require_obsidian_vault(vault: Path) -> Path:
 
     必须在任何 mkdir / 配置写入之前调用：普通目录一律拒绝，磁盘上不留任何痕迹。
     """
-    resolved = Path(vault).expanduser().resolve()
+    resolved = resolve_safely(Path(vault).expanduser())
     if not resolved.is_dir():
         raise ConfigError(f"vault 目录不存在或不是目录: {resolved}")
     if not has_obsidian_dir(resolved):
@@ -170,7 +216,7 @@ def _archive_dir_from_rel(vault: Path, archive_rel: str) -> Path:
             f"归档目录不能是隐藏目录（{candidate.parts[0]}），Obsidian 默认不展示隐藏目录"
         )
     resolved = ensure_inside_vault(vault, vault / candidate)
-    if resolved == Path(vault).resolve():
+    if resolved == resolve_safely(vault):
         raise ConfigError("归档目录不能是 vault 根目录，请指定子目录")
     return resolved
 
@@ -279,10 +325,13 @@ def init_config(vault: Path, archive_rel: str = DEFAULT_ARCHIVE_REL) -> AppConfi
 
 def _locate_config(vault: Path | None) -> Path:
     if vault is not None:
-        vault_path = Path(vault).expanduser().resolve()
+        vault_path = resolve_safely(Path(vault).expanduser())
         if not vault_path.is_dir():
             raise ConfigError(f"vault 目录不存在或不是目录: {vault_path}")
-        config_path = vault_path / STATE_DIRNAME / CONFIG_FILENAME
+        state_dir = vault_path / STATE_DIRNAME
+        # 状态目录是链接环 / 解析不了时，在这里就失败关闭，而不是伪装成「未初始化」
+        resolve_safely(state_dir)
+        config_path = state_dir / CONFIG_FILENAME
         if not config_path.is_file():
             raise ConfigError(
                 f"未初始化：找不到配置 {config_path}，请先运行 init --vault <vault>"
@@ -294,7 +343,7 @@ def _locate_config(vault: Path | None) -> Path:
         candidate = Path(env_config).expanduser()
         if not candidate.is_file():
             raise ConfigError(f"{ENV_CONFIG} 指向的配置文件不存在: {candidate}")
-        return candidate.resolve()
+        return resolve_safely(candidate)
 
     env_vault = os.environ.get(ENV_VAULT)
     if env_vault and env_vault.strip():
@@ -304,7 +353,7 @@ def _locate_config(vault: Path | None) -> Path:
     for parent in (current, *current.parents):
         candidate = parent / STATE_DIRNAME / CONFIG_FILENAME
         if candidate.is_file():
-            return candidate.resolve()
+            return resolve_safely(candidate)
 
     raise ConfigError(
         "未初始化：当前目录及上层都没有 "
@@ -338,7 +387,7 @@ def _read_config(config_path: Path) -> AppConfig:
     # 先验边界再读文件：状态目录或 config.json 是符号链接且指向 vault 外时，
     # 必须在读取之前就失败，不能靠「目录名对不对」蒙过去。
     vault_path = state_dir.parent
-    vault_resolved = vault_path.resolve()
+    vault_resolved = resolve_safely(vault_path)
     ensure_state_inside_vault(vault_resolved, state_dir, config_path)
 
     payload = read_json_file(config_path)
@@ -367,7 +416,7 @@ def _read_config(config_path: Path) -> AppConfig:
     return AppConfig(
         vault=vault_resolved,
         archive_dir=archive_dir,
-        state_dir=state_dir.resolve(),
+        state_dir=resolve_safely(state_dir),
         provider=provider,
         model=model,
         base_url=base_url,

@@ -95,7 +95,7 @@ def _cmd_init(args: argparse.Namespace) -> int:
         return EXIT_INPUT_REQUIRED
 
     vault = Path(args.vault).expanduser()
-    config_path = vault.resolve() / STATE_DIRNAME / CONFIG_FILENAME
+    config_path = vault / STATE_DIRNAME / CONFIG_FILENAME
     existed = config_path.exists()
     config = init_config(vault, archive_rel=args.archive_dir)
     if existed:

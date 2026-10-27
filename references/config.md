@@ -69,8 +69,13 @@
 **状态目录与配置文件也必须落在 vault 内（按解析后的真实路径判断）。**
 如果 `<vault>/.experience-data-asset-engine` 或其中的 `config.json` 被预先换成指向 vault 外的
 符号链接，`init` 与 `load_config` 都会在读写之前抛 `ConfigError`，vault 外零写入。
-判定用的是 `Path.resolve()` 后的路径，因此「链接、链接套链接、大小写差异」都绕不过去；
-链接本身损坏、解析会抛 `OSError` 时同样失败关闭（转成 `ConfigError`，不漏 `OSError`）。
+判定用的是统一的安全解析函数 `resolve_safely()`，因此「链接、链接套链接、大小写差异」都绕不过去。
+它做三件事：
+
+1. 逐跳 `readlink` 检查每个路径组件，**成环或层数超过 32 直接失败**——非严格 `resolve()` 在
+   Windows 上遇到环会静默返回环本身，不抛错，只靠异常是抓不到的；
+2. 捕获 `OSError`（链接损坏、`WinError 1921`）与 `RuntimeError`（部分平台的 `Symlink loop`）；
+3. 全部统一转 `ConfigError`，消息含 `outside vault`，CLI 返回退出码 1 且不打印 traceback。
 
 - 配置已存在：**不覆盖**，直接返回既有配置，CLI 打印「配置已存在，未覆盖」。
 - 配置不存在：写入 `config.json`（临时文件 + 原子替换），创建归档目录与状态目录。

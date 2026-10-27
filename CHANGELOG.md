@@ -49,8 +49,11 @@
 - **doctor 越界即停**：归档路径越界时只报 `archive.inside_vault=error` 并立即停止，
   不再访问相对路径（原先会抛未捕获 `ValueError`）；vault 不可用或路径越界时**不写任何探针**，
   只返回结构化诊断。
-- **解析失败也失败关闭**：路径解析遇到损坏链接 / 链接环抛 `OSError` 时统一转成 `ConfigError`，
-  不让 `OSError` 漏到 CLI 或 doctor 外层。
+- **解析失败也失败关闭**：所有边界判断统一走 `resolve_safely()`——捕获 `OSError`（链接损坏、
+  Windows `WinError 1921`）与 `RuntimeError`（`Symlink loop`），并对每个路径组件逐跳
+  `readlink` 显式检测链接环（非严格 `resolve()` 在 Windows 上会**静默**返回环路径而不抛错，
+  只靠异常判断会漏）；成环、层数超 32、解析失败统一转 `ConfigError`。
+  CLI 遇到链接环返回退出码 1，stderr 输出普通「错误: … outside vault」，不打印 traceback。
 - 探针文件名统一为 `.edae-probe-*.tmp`。
 
 ### 已知限制

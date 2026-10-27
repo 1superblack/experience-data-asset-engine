@@ -484,6 +484,89 @@ def test_ensure_inside_vault_wraps_unresolvable_path(tmp_path, monkeypatch):
         config_module.ensure_inside_vault(tmp_path, tmp_path / "x.md")
 
 
+# --- 符号链接环 ---------------------------------------------------------------
+
+
+def make_symlink_loop(link: Path) -> None:
+    """创建自引用符号链接（指向自身的文件名），用于触发链接环。"""
+    try:
+        link.symlink_to(link.name, target_is_directory=True)
+    except (OSError, NotImplementedError):  # pragma: no cover - 依赖宿主权限
+        pytest.skip("当前环境不支持创建目录符号链接")
+
+
+def test_init_rejects_symlink_loop_in_state_dir(tmp_path):
+    vault = tmp_path / "vault"
+    (vault / ".obsidian").mkdir(parents=True)
+    make_symlink_loop(vault / STATE_DIRNAME)
+
+    with pytest.raises(ConfigError, match="outside vault"):
+        init_config(vault)
+
+    assert {path.name for path in vault.iterdir()} == {".obsidian", STATE_DIRNAME}
+    assert not (vault / DEFAULT_ARCHIVE_REL).exists()
+
+
+def test_init_rejects_symlink_loop_in_vault_path(tmp_path):
+    loop_vault = tmp_path / "loop-vault"
+    make_symlink_loop(loop_vault)
+
+    with pytest.raises(ConfigError, match="outside vault"):
+        init_config(loop_vault)
+
+
+def test_init_rejects_two_link_cycle(tmp_path):
+    vault = tmp_path / "vault"
+    (vault / ".obsidian").mkdir(parents=True)
+    make_symlink_loop(vault / STATE_DIRNAME)
+    # 再把环改成双跳：STATE -> other -> STATE
+    (vault / STATE_DIRNAME).unlink()
+    (vault / STATE_DIRNAME).symlink_to("other-dir", target_is_directory=True)
+    (vault / "other-dir").symlink_to(STATE_DIRNAME, target_is_directory=True)
+
+    with pytest.raises(ConfigError, match="outside vault"):
+        init_config(vault)
+
+
+def test_load_config_rejects_symlink_loop_in_state_dir(tmp_path):
+    vault = tmp_path / "vault"
+    (vault / ".obsidian").mkdir(parents=True)
+    make_symlink_loop(vault / STATE_DIRNAME)
+
+    with pytest.raises(ConfigError, match="outside vault"):
+        load_config(vault)
+
+
+def test_cli_init_symlink_loop_returns_1_without_traceback(tmp_path, capsys):
+    from experience_data_asset_engine.cli import main
+
+    vault = tmp_path / "vault"
+    (vault / ".obsidian").mkdir(parents=True)
+    make_symlink_loop(vault / STATE_DIRNAME)
+
+    assert main(["init", "--vault", str(vault)]) == 1
+
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "Traceback" not in captured.err
+    assert captured.err.startswith("错误: ")
+    assert "outside vault" in captured.err
+
+
+def test_cli_doctor_symlink_loop_returns_1_without_traceback(tmp_path, capsys):
+    from experience_data_asset_engine.cli import main
+
+    vault = tmp_path / "vault"
+    (vault / ".obsidian").mkdir(parents=True)
+    make_symlink_loop(vault / STATE_DIRNAME)
+
+    assert main(["doctor", "--vault", str(vault)]) == 1
+
+    captured = capsys.readouterr()
+    assert "Traceback" not in captured.err
+    assert "outside vault" in captured.err
+
+
 def test_doctor_errors_when_archive_path_is_a_file(tmp_path):
     config = make_config(tmp_path, archive_exists=False)
     config.archive_dir.write_text("i am a file", encoding="utf-8")
