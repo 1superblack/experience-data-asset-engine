@@ -418,7 +418,7 @@ def test_state_key_derives_from_source_and_session_id():
     "project",
     [
         "数据资产引擎",
-        "警备二期 项目",
+        "示例工程 二期",
         "2026 Q1 - 项目A",
         "项目（一期）",
         "obsidian-vault",
