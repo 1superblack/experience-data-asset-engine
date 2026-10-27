@@ -423,3 +423,255 @@ def test_fence_body_keeps_original_lines(tmp_path: Path):
     assert "        return 1" in body
     assert "   " + fence_times(BT, 4) in body, "关闭围栏的缩进也要保留"
 
+
+
+
+# --- 闭合围栏的尾随文本边界（Gate 4 复审终项） -------------------------------
+
+
+def test_info_string_line_inside_fence_is_content(tmp_path: Path):
+    """```python 在 ``` 块里是内容行，不能当成 closing fence。"""
+    text = NL.join(
+        [
+            "# 标题",
+            "## 用户",
+            fence_times(BT, 3),
+            "print(1)",
+            fence_times(BT, 3) + "python",
+            "## 助手",
+            "伪标题",
+            fence_times(BT, 3),
+            "",
+            "## 助手",
+            "真正回答",
+            "",
+        ]
+    )
+    session = load_markdown_session(write(tmp_path / "s.md", text), now=FIXED_NOW)
+
+    assert [m.role for m in session.messages] == ["user", "assistant"]
+    body = session.messages[0].text
+    assert fence_times(BT, 3) + "python" in body, "带标注的行要原样留在代码块里"
+    assert "伪标题" in body, "该行之后的内容仍属于用户段落"
+    assert session.messages[1].text == "真正回答"
+
+
+def test_heading_after_info_string_line_stays_user_body(tmp_path: Path):
+    """围栏内 ```python 之后的 `## 助手` 仍是正文。"""
+    text = NL.join(
+        [
+            "# 标题",
+            "## 用户",
+            fence_times(BT, 3),
+            fence_times(BT, 3) + "python",
+            "## 助手",
+            fence_times(BT, 3),
+            "",
+        ]
+    )
+    session = load_markdown_session(write(tmp_path / "s.md", text), now=FIXED_NOW)
+
+    assert len(session.messages) == 1
+    assert "## 助手" in session.messages[0].text
+
+
+def test_info_string_can_still_open_a_fence(tmp_path: Path):
+    """```python 作为真正的 opening 仍然开启代码块，之后的 `## 助手` 是角色。"""
+    text = NL.join(
+        [
+            "# 标题",
+            "## 用户",
+            fence_times(BT, 3) + "python",
+            "print(1)",
+            fence_times(BT, 3),
+            "",
+            "## 助手",
+            "答",
+            "",
+        ]
+    )
+    session = load_markdown_session(write(tmp_path / "s.md", text), now=FIXED_NOW)
+
+    assert [m.role for m in session.messages] == ["user", "assistant"]
+    assert fence_times(BT, 3) + "python" in session.messages[0].text
+    assert session.messages[1].text == "答"
+
+
+def test_closing_fence_allows_trailing_spaces_and_tabs(tmp_path: Path):
+    """关闭行只允许空格/制表符尾随。"""
+    text = NL.join(
+        [
+            "# 标题",
+            "## 用户",
+            fence_times(BT, 3),
+            "内容",
+            fence_times(BT, 3) + " \t ",
+            "",
+            "## 助手",
+            "答",
+            "",
+        ]
+    )
+    session = load_markdown_session(write(tmp_path / "s.md", text), now=FIXED_NOW)
+
+    assert [m.role for m in session.messages] == ["user", "assistant"]
+    assert session.messages[1].text == "答"
+
+
+def test_longer_marker_with_trailing_text_does_not_close(tmp_path: Path):
+    """字符与长度都满足、但带尾随文本，仍然不得关闭。"""
+    text = NL.join(
+        [
+            "# 标题",
+            "## 用户",
+            fence_times(BT, 3),
+            fence_times(BT, 4) + "python",
+            "## 助手",
+            "伪标题",
+            fence_times(BT, 3),
+            "",
+            "## 助手",
+            "真回答",
+            "",
+        ]
+    )
+    session = load_markdown_session(write(tmp_path / "s.md", text), now=FIXED_NOW)
+
+    assert [m.role for m in session.messages] == ["user", "assistant"]
+    assert "伪标题" in session.messages[0].text
+    assert session.messages[1].text == "真回答"
+
+
+def test_unclosed_after_info_string_still_fails(tmp_path: Path):
+    """带标注的 opening 到 EOF 未闭合，同样失败关闭。"""
+    text = NL.join(["# 标题", "## 用户", fence_times(BT, 3) + "python", "print(1)", ""])
+    path = write(tmp_path / "s.md", text)
+
+    with pytest.raises(SessionFormatError, match="没有闭合"):
+        load_markdown_session(path, now=FIXED_NOW)
+
+
+
+# --- 闭合围栏的尾随文本边界（Gate 4 复审终项） -------------------------------
+
+
+def test_info_string_line_inside_fence_is_content(tmp_path: Path):
+    """```python 在 ``` 块里是内容行，不能当成 closing fence。"""
+    text = NL.join(
+        [
+            "# 标题",
+            "## 用户",
+            fence_times(BT, 3),
+            "print(1)",
+            fence_times(BT, 3) + "python",
+            "## 助手",
+            "伪标题",
+            fence_times(BT, 3),
+            "",
+            "## 助手",
+            "真正回答",
+            "",
+        ]
+    )
+    session = load_markdown_session(write(tmp_path / "s.md", text), now=FIXED_NOW)
+
+    assert [m.role for m in session.messages] == ["user", "assistant"]
+    body = session.messages[0].text
+    assert fence_times(BT, 3) + "python" in body, "带标注的行要原样留在代码块里"
+    assert "伪标题" in body, "该行之后的内容仍属于用户段落"
+    assert session.messages[1].text == "真正回答"
+
+
+def test_heading_after_info_string_line_stays_user_body(tmp_path: Path):
+    """围栏内 ```python 之后的 `## 助手` 仍是正文。"""
+    text = NL.join(
+        [
+            "# 标题",
+            "## 用户",
+            fence_times(BT, 3),
+            fence_times(BT, 3) + "python",
+            "## 助手",
+            fence_times(BT, 3),
+            "",
+        ]
+    )
+    session = load_markdown_session(write(tmp_path / "s.md", text), now=FIXED_NOW)
+
+    assert len(session.messages) == 1
+    assert "## 助手" in session.messages[0].text
+
+
+def test_info_string_can_still_open_a_fence(tmp_path: Path):
+    """```python 作为真正的 opening 仍然开启代码块，之后的 `## 助手` 是角色。"""
+    text = NL.join(
+        [
+            "# 标题",
+            "## 用户",
+            fence_times(BT, 3) + "python",
+            "print(1)",
+            fence_times(BT, 3),
+            "",
+            "## 助手",
+            "答",
+            "",
+        ]
+    )
+    session = load_markdown_session(write(tmp_path / "s.md", text), now=FIXED_NOW)
+
+    assert [m.role for m in session.messages] == ["user", "assistant"]
+    assert fence_times(BT, 3) + "python" in session.messages[0].text
+    assert session.messages[1].text == "答"
+
+
+def test_closing_fence_allows_trailing_spaces_and_tabs(tmp_path: Path):
+    """关闭行只允许空格/制表符尾随。"""
+    text = NL.join(
+        [
+            "# 标题",
+            "## 用户",
+            fence_times(BT, 3),
+            "内容",
+            fence_times(BT, 3) + " " + chr(9) + " ",
+            "",
+            "## 助手",
+            "答",
+            "",
+        ]
+    )
+    session = load_markdown_session(write(tmp_path / "s.md", text), now=FIXED_NOW)
+
+    assert [m.role for m in session.messages] == ["user", "assistant"]
+    assert session.messages[1].text == "答"
+
+
+def test_longer_marker_with_trailing_text_does_not_close(tmp_path: Path):
+    """字符与长度都满足、但带尾随文本，仍然不得关闭。"""
+    text = NL.join(
+        [
+            "# 标题",
+            "## 用户",
+            fence_times(BT, 3),
+            fence_times(BT, 4) + "python",
+            "## 助手",
+            "伪标题",
+            fence_times(BT, 3),
+            "",
+            "## 助手",
+            "真回答",
+            "",
+        ]
+    )
+    session = load_markdown_session(write(tmp_path / "s.md", text), now=FIXED_NOW)
+
+    assert [m.role for m in session.messages] == ["user", "assistant"]
+    assert "伪标题" in session.messages[0].text
+    assert session.messages[1].text == "真回答"
+
+
+def test_unclosed_after_info_string_still_fails(tmp_path: Path):
+    """带标注的 opening 到 EOF 未闭合，同样失败关闭。"""
+    text = NL.join(["# 标题", "## 用户", fence_times(BT, 3) + "python", "print(1)", ""])
+    path = write(tmp_path / "s.md", text)
+
+    with pytest.raises(SessionFormatError, match="没有闭合"):
+        load_markdown_session(path, now=FIXED_NOW)

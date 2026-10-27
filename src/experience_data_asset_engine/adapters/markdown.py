@@ -51,7 +51,25 @@ ROLE_ALIASES: Final = {
 
 _H1_RE: Final = re.compile(r"^#[ \t]+(?P<title>.+?)[ \t]*$")
 _H2_RE: Final = re.compile(r"^##[ \t]+(?P<name>.*?)[ \t]*$")
-_FENCE_RE: Final = re.compile(r"^[ \t]*(?P<fence>`{3,}|~{3,})")
+_FENCE_RE: Final = re.compile(r"^[ \t]*(?P<fence>`{3,}|~{3,})(?P<tail>.*)$")
+
+
+def _closes_fence(match: re.Match[str] | None, fence_char: str, fence_length: int) -> bool:
+    """这一行能否关闭当前围栏。
+
+    三个条件缺一不可：同字符、长度不少于开启长度、**标记之后只剩空格或制表符**。
+    只比字符和长度是不够的——```python 出现在 ``` 块里时字符和长度都满足，
+    但它是带信息标注的内容行，不是闭合行；把它当闭合会让后面的 ``## 助手`` 变成真角色。
+    """
+    if match is None:
+        return False
+    marker = match.group("fence")
+    tail = match.group("tail")
+    return (
+        marker[0] == fence_char
+        and len(marker) >= fence_length
+        and tail.strip() == ""
+    )
 
 
 def _read_text(path: Path) -> tuple[str, bytes]:
@@ -98,8 +116,9 @@ def _parse(
     围栏状态机（不是正则猜嵌套）：
 
     - 打开时记住 ``fence_char``（````` 或 ``~``）与 ``fence_length``（实际个数）；
-    - **只有**「字符相同 且 长度 >= 开启长度」的行才能关闭——所以四反引号块里出现
-      三反引号不会被提前关掉；
+    - **只有**「字符相同 且 长度 >= 开启长度 且标记后只剩空白」的行才能关闭——
+      所以四反引号块里的三反引号、以及 ```python 这种带标注的行，都不会提前关闭；
+- opening 允许带信息标注（```python / ````markdown），closing 不允许非空尾随文本；
     - 围栏内的任何内容（包括 ````## 用户`` / ``## 助手`` / 未知二级标题）都是正文；
     - 围栏开在第一条角色标题之前 → 视为「标题前正文」，失败关闭；
     - 到 EOF 仍未关闭 → 失败关闭，不把剩下内容当普通正文。
@@ -115,18 +134,18 @@ def _parse(
         marker_match = _FENCE_RE.match(raw)
 
         if fence_char is not None:
-            # 围栏内：只有「同字符 + 长度不少于开启长度」才算关闭
-            if marker_match:
-                marker = marker_match.group("fence")
-                if marker[0] == fence_char and len(marker) >= fence_length:
-                    fence_char = None
-                    fence_length = 0
-                    current.append(raw)
-                    continue
+            # 围栏内：同字符 + 长度足够 + 标记后无非空尾随文本，才算关闭。
+            # 因此 ```python 在 ``` 块里是内容行，不会提前关闭。
+            if _closes_fence(marker_match, fence_char, fence_length):
+                fence_char = None
+                fence_length = 0
+                current.append(raw)
+                continue
             current.append(raw)
             continue
 
         if marker_match:
+            # opening 允许带信息标注（```python / ````markdown），tail 不参与判定
             marker = marker_match.group("fence")
             if current is None:
                 raise SessionFormatError(
