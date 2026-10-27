@@ -9,9 +9,9 @@ import pytest
 
 from experience_data_asset_engine import __version__
 from experience_data_asset_engine.cli import (
+    EXIT_DISTILLATION_REQUIRED,
     EXIT_FAILURE,
     EXIT_INPUT_REQUIRED,
-    EXIT_NOT_IMPLEMENTED,
     EXIT_OK,
     main,
 )
@@ -119,11 +119,17 @@ def test_read_only_commands_without_config_fail_closed(command, tmp_path, monkey
     assert "init" in capsys.readouterr().err
 
 
-def test_no_command_still_returns_exit_4():
-    """退出码 4 保留给「未实现」语义，Gate 4 之后没有任何子命令会返回它。"""
+def test_exit_code_contract_is_complete():
+    """退出码只剩 0/1/2/3 四个语义，不再保留「未实现」这个空壳常量。"""
     from experience_data_asset_engine import cli as cli_module
 
-    assert cli_module.EXIT_NOT_IMPLEMENTED == 4
+    assert not hasattr(cli_module, "EXIT_NOT_IMPLEMENTED")
+    assert (
+        EXIT_OK,
+        EXIT_FAILURE,
+        EXIT_INPUT_REQUIRED,
+        EXIT_DISTILLATION_REQUIRED,
+    ) == (0, 1, 2, 3)
     assert set(cli_module.HANDLERS) == {
         "init",
         "doctor",

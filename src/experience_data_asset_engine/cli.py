@@ -13,6 +13,7 @@ import argparse
 import shutil
 import sys
 from collections.abc import Callable, Sequence
+from dataclasses import dataclass, replace
 from datetime import date
 from pathlib import Path
 
@@ -27,6 +28,7 @@ from .config import (
     AppConfig,
     doctor,
     ensure_inside_vault,
+    has_obsidian_dir,
     init_config,
     load_config,
     read_json_file,
@@ -46,7 +48,6 @@ EXIT_OK = 0
 EXIT_FAILURE = 1
 EXIT_INPUT_REQUIRED = 2
 EXIT_DISTILLATION_REQUIRED = 3
-EXIT_NOT_IMPLEMENTED = 4  # 保留常量；Gate 4 起没有子命令会返回它
 
 _SUPPORTED_INPUT_SUFFIXES = (".json", ".jsonl", ".jsonl.zst", ".md")
 
@@ -234,68 +235,131 @@ def _cmd_doctor(args: argparse.Namespace) -> int:
     return EXIT_FAILURE if any(item.is_error for item in diagnostics) else EXIT_OK
 
 
+@dataclass(frozen=True, slots=True)
+class ArchivePlan:
+    """一次归档的准备工作结果（真跑与 dry-run 共用同一套准备逻辑）。
+
+    ``mode``：``distilled`` / ``provider`` / ``provider-planned`` /
+    ``staging`` / ``staging-planned``。
+    """
+
+    session: NormalizedSession
+    report: NoiseReport
+    mode: str
+    note: DistilledNote | None = None
+    staging_path: Path | None = None
+    schema_path: Path | None = None
+
+    @property
+    def staging_required(self) -> bool:
+        return self.mode in {"staging", "staging-planned"}
+
+    @property
+    def provider_planned(self) -> bool:
+        return self.mode == "provider-planned"
+
+    @property
+    def distilled(self) -> bool:
+        return self.mode == "distilled"
+
+
+def _prepare_archive(
+    args: argparse.Namespace, config: AppConfig, *, allow_side_effects: bool
+) -> ArchivePlan:
+    """解析输入 → 降噪 → 取笔记。**统计只在这里产生一次**。
+
+    - `--distilled`：先跑 ``filter_noise``，再用真实统计覆盖传入笔记自带的统计；
+    - 有模型：交给 ``prepare_distillation``，用它的统计（不回退、不重算）；
+    - 无模型：``allow_side_effects`` 为真时写 staging，否则只返回计划。
+    """
+    session = _load_session(Path(args.input).expanduser())
+    _cleaned, report = filter_noise(session)
+
+    if args.distilled:
+        supplied = _load_distilled(Path(args.distilled).expanduser())
+        # 覆盖后的 note 才允许交给 writer，content_hash 也基于这份真实统计
+        return ArchivePlan(
+            session=session,
+            report=report,
+            mode="distilled",
+            note=replace(supplied, noise_report=report),
+        )
+
+    if config.provider:
+        if not allow_side_effects:
+            return ArchivePlan(session=session, report=report, mode="provider-planned")
+        note = prepare_distillation(session, config)
+        return ArchivePlan(session=session, report=note.noise_report, mode="provider", note=note)
+
+    if not allow_side_effects:
+        return ArchivePlan(session=session, report=report, mode="staging-planned")
+
+    try:
+        prepare_distillation(session, config)
+    except DistillationRequired as exc:
+        return ArchivePlan(
+            session=session,
+            report=report,
+            mode="staging",
+            staging_path=exc.staging_path,
+            schema_path=exc.schema_path,
+        )
+    raise ConfigError("内部状态异常：无 provider 时不应直接返回笔记")
+
+
 def _cmd_archive(args: argparse.Namespace) -> int:
     if not args.input:
         _err("archive 需要 --input <path>（会话文件）")
         return EXIT_INPUT_REQUIRED
 
     config = _config(args)
-    session = _load_session(Path(args.input).expanduser())
+    plan = _prepare_archive(args, config, allow_side_effects=not args.dry_run)
 
     if args.dry_run:
-        return _archive_plan(args, config, session)
+        return _print_plan(config, plan, args)
 
-    if args.distilled:
-        note = _load_distilled(Path(args.distilled).expanduser())
-        result = write_note(note, session, config)
-        _print_write_result(config, note, result, distilled=True)
-        _print_vault_line(config, args.include_stale)
-        return EXIT_OK
+    if plan.staging_required:
+        _err("需要蒸馏：未配置模型，已生成 staging 请求，未写入任何正式笔记")
+        _print_staging(config, plan)
+        return EXIT_DISTILLATION_REQUIRED
 
-    if not config.provider:
-        try:
-            prepare_distillation(session, config)
-        except DistillationRequired as exc:
-            _err("需要蒸馏：未配置模型，已生成 staging 请求，未写入任何正式笔记")
-            print(f"staging: {_display(config, exc.staging_path)}", file=sys.stderr)
-            if exc.schema_path is not None:
-                print(f"schema: {_display(config, exc.schema_path)}", file=sys.stderr)
-            print(
-                "下一步: 让 Agent 按 schema 产出 DistilledNote，再用 --distilled 归档",
-                file=sys.stderr,
-            )
-            return EXIT_DISTILLATION_REQUIRED
-        raise ConfigError("内部状态异常：无 provider 时不应直接返回笔记")
-
-    note = prepare_distillation(session, config)
-    result = write_note(note, session, config)
-    _print_write_result(config, note, result)
+    assert plan.note is not None  # 非 staging 分支必然有笔记
+    result = write_note(plan.note, plan.session, config)
+    _print_write_result(config, plan.note, result, distilled=plan.distilled)
     _print_vault_line(config, args.include_stale)
     return EXIT_OK
 
 
-def _archive_plan(args: argparse.Namespace, config: AppConfig, session: NormalizedSession) -> int:
+def _print_staging(config: AppConfig, plan: ArchivePlan) -> None:
+    if plan.staging_path is not None:
+        print(f"staging: {_display(config, plan.staging_path)}", file=sys.stderr)
+    if plan.schema_path is not None:
+        print(f"schema: {_display(config, plan.schema_path)}", file=sys.stderr)
+    print("下一步: 让 Agent 按 schema 产出 DistilledNote，再用 --distilled 归档", file=sys.stderr)
+
+
+def _print_plan(config: AppConfig, plan: ArchivePlan, args: argparse.Namespace) -> int:
     """--dry-run：只读演算，一个字节都不写。"""
-    cleaned, report = filter_noise(session)
     print("dry-run: 不写入任何文件（不写 Markdown / state / audit / staging，也不创建目录）")
     print(f"input: {Path(args.input).name}")
-    print(f"session: {session.title}（{session.source}:{session.session_id}）")
-    print(f"noise: {_noise_line(report)}")
-    print(f"will_keep: {len(cleaned.messages)} 条消息进入蒸馏")
+    print(f"session: {plan.session.title}（{plan.session.source}:{plan.session.session_id}）")
+    print(f"noise: {_noise_line(plan.report)}")
+    print(f"will_keep: {plan.report.kept_messages} 条消息进入蒸馏")
 
-    if args.distilled:
-        note = _load_distilled(Path(args.distilled).expanduser())
-        result = write_note(note, session, config, dry_run=True)
+    if plan.note is not None:
+        # dry-run 与真跑用同一份 note（同样的覆盖、同样的哈希），不会出现两套统计
+        result = write_note(plan.note, plan.session, config, dry_run=True)
         print(f"预计 action: {result.action}")
         print(f"预计 path: {_display(config, result.path)}")
         print(f"content_hash: {result.content_hash}")
-        print("distilled: 使用 --distilled，不会调用模型")
-    elif not config.provider:
-        print("预计 action: 生成 staging 请求（需要蒸馏），不会写正式笔记")
-        print("预计退出码: 3")
-    else:
+        if plan.distilled:
+            print("distilled: 使用 --distilled，不会调用模型")
+    elif plan.provider_planned:
         print(f"预计 action: 调用模型 {config.provider} → 校验 → 写入")
         print("预计 path: 需蒸馏完成后才能确定")
+    else:
+        print("预计 action: 生成 staging 请求（需要蒸馏），不会写正式笔记")
+        print("预计退出码: 3")
     return EXIT_OK
 
 
@@ -376,20 +440,40 @@ def _cmd_uninstall(args: argparse.Namespace) -> int:
         _err("uninstall 需要 --yes 确认；未确认时不会删除任何东西")
         return EXIT_INPUT_REQUIRED
 
-    vault = resolve_safely(Path(args.vault).expanduser()) if args.vault else load_config().vault
+    # 1) 目标必须是真正的 Obsidian vault（缺 .obsidian 直接拒绝，普通目录连看都不看）
+    vault_arg = _vault_of(args)
+    if vault_arg is not None:
+        vault = resolve_safely(vault_arg)
+    else:
+        vault = resolve_safely(load_config().vault)
+    if not has_obsidian_dir(vault):
+        raise ConfigError(
+            f"目标不是 Obsidian vault（缺少 .obsidian），拒绝执行 uninstall: {vault}"
+        )
+
+    # 2) 状态目录必须是普通目录，不能是符号链接
     state_dir = vault / STATE_DIRNAME
     if state_dir.is_symlink():
         raise ConfigError(f"状态目录是符号链接，拒绝删除: {state_dir}")
     target = ensure_inside_vault(vault, state_dir)
+
     if not target.exists():
         print(f"状态目录不存在，无需卸载: {target}")
         return EXIT_OK
     if not target.is_dir():
         raise ConfigError(f"状态目录不是目录，拒绝删除: {target}")
 
-    removed = sum(1 for item in target.rglob("*") if item.is_file())
+    # 3) 必须存在本工具的有效配置：没有 config、配置损坏、越界都拒绝删
+    config = load_config(vault)
+
+    files = sorted(item for item in target.rglob("*") if item.is_file())
+    print(f"将删除状态目录: {_display(config, target)}")
+    print(f"将删除 {len(files)} 个文件:")
+    for item in files:
+        print(f"  - {_display(config, item)}")
+
     shutil.rmtree(target)
-    print(f"已删除状态目录: {target}（{removed} 个文件）")
+    print(f"已删除: {_display(config, target)}")
     print("未删除任何 Markdown 笔记")
     return EXIT_OK
 

@@ -48,6 +48,19 @@
 - **pending 命名精确匹配**：只认 `<stem>.pending-<8位小写十六进制>.md` 与旧版
   `<stem>.pending.md`；`release.pending-notes.md` 这类普通笔记不再被误判为候选。
 
+### 修复（Gate 4 复审）
+
+- **`--distilled` 不再自带统计**：归档前先对输入会话跑 `filter_noise`，用真实统计覆盖传入
+  笔记的 `noise_report`，覆盖后的笔记才交给 writer 与 `content_hash`；
+  dry-run 与真跑共用同一份计划，哈希与统计必然一致。
+- **正文补「降噪统计」章节**：正式笔记与 pending 候选都带 `过滤消息 k/n`、系统/工具/重复/
+  死路/脱敏六行，数字只取自 `note.noise_report`。
+- **uninstall 安全边界**：目标必须是真 vault（有 `.obsidian`）、状态目录必须是普通目录、
+  且必须存在可被 `load_config` 成功解析的配置；普通目录 / 缺配置 / 坏配置 / 越界配置一律拒绝，
+  文件树零改动。删除前先打印将删的目录与文件清单。
+- **代码清理**：删掉重复的测试辅助函数 `snapshot()`；删除空壳常量 `EXIT_NOT_IMPLEMENTED`
+  （退出码收敛为 0/1/2/3）；`archive` 的真跑与 dry-run 合并到同一个 `_prepare_archive()`。
+
 ### 骨架与协议
 
 - Skill 元数据：`SKILL.md`（slug `experience-data-asset-engine`）、`agents/openai.yaml`。

@@ -128,7 +128,7 @@
 | `1` | 校验或配置失败（含 vault 不存在、配置损坏、路径越界、输入后缀不认识） |
 | `2` | 需要用户补充输入（缺 `--vault` / `--input`、`recheck` 参数不成对、`uninstall` 未加 `--yes`） |
 | `3` | 需要蒸馏（未配置模型，`archive` 只生成了 staging） |
-| `4` | 保留给「子命令尚未实现」；Gate 4 起没有任何子命令会返回它 |
+| `4` | **已停用**：Gate 4 起没有任何子命令返回它（编号保留，避免与历史脚本冲突） |
 
 ## CLI 子命令矩阵
 
@@ -141,7 +141,7 @@
 | `status` | `--vault` | 零写入 | 0 / 1 |
 | `recheck --due` | `--include-stale` | 零写入，只列到期候选 | 0 / 1 |
 | `recheck --note --status` | `--note` `--status` | 只改一篇笔记的 `状态` 行（原子替换） | 0 / 1 / 2 |
-| `uninstall` | `--vault` `--yes` | 只删 `<vault>/.experience-data-asset-engine/`，绝不删 Markdown | 0 / 1 / 2 |
+| `uninstall` | `--vault` `--yes` | 只删 `<vault>/.experience-data-asset-engine/`；目标必须是真 vault 且配置有效 | 0 / 1 / 2 |
 
 `archive` 的输入按后缀自动识别：`.json`（标准化会话）、`.jsonl` / `.jsonl.zst`（Codex）、
 `.md`（手动导入）。`--distilled` 给了就跳过模型调用；`--dry-run` 一个字节都不写。

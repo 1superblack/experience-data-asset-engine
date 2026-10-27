@@ -711,3 +711,151 @@ def test_write_rejects_unsafe_project_name(config: AppConfig, today: date):
     with pytest.raises(SchemaError, match="非法字符"):
         write_note(make_note(project="a/b"), make_session(), config)
     assert snapshot(config.archive_dir) == {}
+
+
+# --- 降噪统计章节（Gate 4 复审） ---------------------------------------------
+
+
+def expected_noise_block(note: DistilledNote) -> list[str]:
+    report = note.noise_report
+    return [
+        "## 降噪统计",
+        f"过滤消息 {report.kept_messages}/{report.input_messages}",
+        f"系统噪音 {report.system_noise}",
+        f"工具噪音 {report.tool_noise}",
+        f"重复主题 {report.duplicate_topics}",
+        f"无效死路 {report.dead_ends}",
+        f"脱敏 {report.redactions}",
+    ]
+
+
+def test_render_body_contains_noise_section():
+    note = make_note()
+    body = writer.render_body(note)
+
+    for line in expected_noise_block(note):
+        assert line in body, f"正文缺少: {line}"
+
+
+def test_written_note_body_contains_real_noise_counts(config: AppConfig, today: date):
+    note = make_note()
+    result = write_note(note, make_session(), config)
+
+    _fields, body = parse_frontmatter(result.path.read_text(encoding="utf-8"))
+    for line in expected_noise_block(note):
+        assert line in body, f"落盘笔记正文缺少: {line}"
+    assert "过滤消息 4/10" in body, "必须用 note.noise_report 的真实计数"
+
+
+def test_noise_section_reflects_report_changes(config: AppConfig, today: date):
+    """换一份 noise_report，正文数字必须跟着变——证明不是写死模板。"""
+    report = NoiseReport(
+        input_messages=200,
+        kept_messages=45,
+        system_noise=55,
+        tool_noise=50,
+        duplicate_topics=30,
+        dead_ends=20,
+        redactions=4,
+    )
+    note = make_note(noise_report=report)
+    result = write_note(note, make_session(), config)
+
+    body = parse_frontmatter(result.path.read_text(encoding="utf-8"))[1]
+    assert "过滤消息 45/200" in body
+    assert "系统噪音 55" in body
+    assert "工具噪音 50" in body
+    assert "重复主题 30" in body
+    assert "无效死路 20" in body
+    assert "脱敏 4" in body
+
+
+def test_pending_candidate_contains_same_noise_section(config: AppConfig, today: date):
+    """pending 候选也必须带同一份统计，否则合并时会把审计信息丢掉。"""
+    note = make_note()
+    text = writer.render_pending(
+        note,
+        make_session(),
+        "a" * 64,
+        today.isoformat(),
+        "04-对话存档/项目/目标.md",
+        "目标笔记不是本工具生成",
+    )
+
+    _fields, body = parse_frontmatter(text)
+    for line in expected_noise_block(note):
+        assert line in body, f"pending 正文缺少: {line}"
+
+
+# --- 降噪统计章节（Gate 4 复审） ---------------------------------------------
+
+
+def expected_noise_block(note: DistilledNote) -> list[str]:
+    report = note.noise_report
+    return [
+        "## 降噪统计",
+        f"过滤消息 {report.kept_messages}/{report.input_messages}",
+        f"系统噪音 {report.system_noise}",
+        f"工具噪音 {report.tool_noise}",
+        f"重复主题 {report.duplicate_topics}",
+        f"无效死路 {report.dead_ends}",
+        f"脱敏 {report.redactions}",
+    ]
+
+
+def test_render_body_contains_noise_section():
+    note = make_note()
+    body = writer.render_body(note)
+
+    for line in expected_noise_block(note):
+        assert line in body, f"正文缺少: {line}"
+
+
+def test_written_note_body_contains_real_noise_counts(config: AppConfig, today: date):
+    note = make_note()
+    result = write_note(note, make_session(), config)
+
+    _fields, body = parse_frontmatter(result.path.read_text(encoding="utf-8"))
+    for line in expected_noise_block(note):
+        assert line in body, f"落盘笔记正文缺少: {line}"
+    assert "过滤消息 4/10" in body, "必须用 note.noise_report 的真实计数"
+
+
+def test_noise_section_reflects_report_changes(config: AppConfig, today: date):
+    """换一份 noise_report，正文数字必须跟着变——证明不是写死模板。"""
+    report = NoiseReport(
+        input_messages=200,
+        kept_messages=45,
+        system_noise=55,
+        tool_noise=50,
+        duplicate_topics=30,
+        dead_ends=20,
+        redactions=4,
+    )
+    note = make_note(noise_report=report)
+    result = write_note(note, make_session(), config)
+
+    body = parse_frontmatter(result.path.read_text(encoding="utf-8"))[1]
+    assert "过滤消息 45/200" in body
+    assert "系统噪音 55" in body
+    assert "工具噪音 50" in body
+    assert "重复主题 30" in body
+    assert "无效死路 20" in body
+    assert "脱敏 4" in body
+
+
+def test_pending_candidate_contains_same_noise_section(config: AppConfig, today: date):
+    """pending 候选也必须带同一份统计，否则合并时会把审计信息丢掉。"""
+    note = make_note()
+    text = writer.render_pending(
+        note,
+        make_session(),
+        "a" * 64,
+        today.isoformat(),
+        "04-对话存档/项目/目标.md",
+        "目标笔记不是本工具生成",
+    )
+
+    _fields, body = parse_frontmatter(text)
+    for line in expected_noise_block(note):
+        assert line in body, f"pending 正文缺少: {line}"

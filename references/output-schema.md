@@ -138,6 +138,22 @@ input_messages == kept_messages + system_noise + tool_noise + duplicate_topics +
 `redactions` 独立于该等式——它统计替换次数，不减少消息数。规则细节见
 [`noise-policy.md`](noise-policy.md)。
 
+渲染成 Markdown 时，正文末尾必须有独立的「降噪统计」章节，数字直接取自
+`note.noise_report`：
+
+```text
+## 降噪统计
+
+过滤消息 3/10
+系统噪音 3
+工具噪音 2
+重复主题 1
+无效死路 1
+脱敏 1
+```
+
+pending 候选（`<stem>.pending-<hash8>.md`）带同一章节，否则合并时审计信息会丢。
+
 **`noise_report` 只能由管道产生。** 走模型时提示词要求模型抄写一遍，但解析成功后会被
 `filter_noise` 的真实统计覆盖：模型自报的数字一律不采信，只为让输出结构完整。
 

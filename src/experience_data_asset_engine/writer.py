@@ -35,7 +35,7 @@ from typing import Any, Final
 from .config import AppConfig, ensure_inside_vault, read_json_file, write_json_atomic
 from .errors import ConfigError, SchemaError
 from .lifecycle import compute_review_after
-from .models import DistilledNote, NormalizedSession
+from .models import DistilledNote, NoiseReport, NormalizedSession
 from .noise import redact_sensitive
 
 GENERATOR: Final = "experience-data-asset-engine"
@@ -370,6 +370,24 @@ def _decisions_block(note: DistilledNote) -> str:
     return "\n".join(blocks).rstrip()
 
 
+def _noise_section(report: NoiseReport) -> str:
+    """降噪统计章节：七个计数里可读的六个（kept/input 合并成一行）。
+
+    计数只来自 ``note.noise_report``——也就是管道 ``filter_noise`` 的返回值，
+    不从模型响应或 CLI 临时变量重新拼，避免「笔记里一套、日志里另一套」。
+    """
+    return "\n".join(
+        [
+            f"过滤消息 {report.kept_messages}/{report.input_messages}",
+            f"系统噪音 {report.system_noise}",
+            f"工具噪音 {report.tool_noise}",
+            f"重复主题 {report.duplicate_topics}",
+            f"无效死路 {report.dead_ends}",
+            f"脱敏 {report.redactions}",
+        ]
+    )
+
+
 def render_body(note: DistilledNote, title: str | None = None) -> str:
     """渲染笔记正文（不含 frontmatter）。
 
@@ -386,6 +404,7 @@ def render_body(note: DistilledNote, title: str | None = None) -> str:
         ("可复用", _bullets(note.reusable)),
         ("风险", _bullets(note.risks)),
         ("待办", _bullets(note.todo)),
+        ("降噪统计", _noise_section(note.noise_report)),
     ]
     parts = [f"# {heading}", ""]
     for section_heading, content in sections:

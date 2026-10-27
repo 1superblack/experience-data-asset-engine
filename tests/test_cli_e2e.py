@@ -50,14 +50,6 @@ def snapshot(root: Path) -> dict[str, object]:
     }
 
 
-def snapshot(root: Path) -> dict[str, object]:
-    """连目录一起记账：证明 dry-run 连一个空目录都没建。"""
-    return {
-        path.relative_to(root).as_posix(): ("dir" if path.is_dir() else path.read_bytes())
-        for path in sorted(root.rglob("*"))
-    }
-
-
 @pytest.fixture
 def vault(sample_vault: Path, capsys: pytest.CaptureFixture) -> Path:
     code, _, _ = run(capsys, "init", "--vault", str(sample_vault))
@@ -419,7 +411,8 @@ def test_uninstall_yes_removes_only_state_dir(vault: Path, capsys):
     code, out, _ = run(capsys, "uninstall", "--vault", str(vault), "--yes")
 
     assert code == EXIT_OK
-    assert "已删除状态目录" in out
+    assert "将删除状态目录" in out, "删除前必须先报出目标"
+    assert "将删除" in out and "个文件" in out, "删除前必须先报出文件数量"
     assert "未删除任何 Markdown" in out
     assert not (vault / STATE_DIRNAME).exists()
     assert note.read_bytes() == markdown_before
@@ -454,8 +447,9 @@ def test_archive_output_never_contains_secret(vault: Path, capsys):
     assert "abcdef1234567890" not in combined
     assert "sk-" not in combined
     assert "需替换" not in combined
-    # --distilled 模式写的是供应方给的统计，不是重新降噪的结果
-    assert "noise: 保留 6/6" in out
+    # 真实降噪统计：noisy-session.json 是 10 条输入、保留 3 条
+    assert "noise: 保留 3/10" in out
+    assert "系统 3" in out and "工具 2" in out and "脱敏 1" in out
 
 
 def test_dry_run_reports_real_redaction_count_for_noisy_input(vault: Path, capsys):
@@ -632,3 +626,147 @@ def test_uninstall_refuses_state_path_that_is_a_file(sample_vault: Path, capsys)
     assert code == EXIT_FAILURE
     assert "不是目录" in err
     assert state_dir.read_text(encoding="utf-8") == "not a dir"
+
+
+# --- --distilled 必须用真实降噪统计（Gate 4 复审） -----------------------------
+
+
+def archive_noisy(capsys, vault, *extra: str):
+    return run(
+        capsys,
+        "archive",
+        "--input",
+        str(NOISY_JSON),
+        "--distilled",
+        str(DISTILLED),
+        "--vault",
+        str(vault),
+        *extra,
+    )
+
+
+def noise_lines(note_path: Path) -> list[str]:
+    body = parse_frontmatter(note_path.read_text(encoding="utf-8"))[1]
+    return [line for line in body.splitlines() if line.startswith(("过滤消息", "系统噪音", "工具噪音", "重复主题", "无效死路", "脱敏"))]
+
+
+def test_distilled_uses_real_noise_stats_in_stdout(vault: Path, capsys):
+    code, out, err = archive_noisy(capsys, vault)
+
+    assert code == EXIT_OK, err
+    assert "noise: 保留 3/10" in out, "必须显示真实降噪结果，而不是 distilled JSON 自带的 6/6"
+    assert "系统 3" in out and "工具 2" in out and "重复 1" in out
+    assert "死路 1" in out and "脱敏 1" in out
+
+
+def test_distilled_writes_real_noise_stats_into_note_body(vault: Path, capsys):
+    assert archive_noisy(capsys, vault)[0] == EXIT_OK
+    note = archived_notes(vault)[0]
+
+    lines = noise_lines(note)
+
+    assert "过滤消息 3/10" in lines
+    assert "系统噪音 3" in lines
+    assert "工具噪音 2" in lines
+    assert "重复主题 1" in lines
+    assert "无效死路 1" in lines
+    assert "脱敏 1" in lines
+
+
+def test_distilled_supplied_stats_are_discarded(vault: Path, capsys):
+    supplied = json.loads(DISTILLED.read_text(encoding="utf-8"))
+    assert supplied["noise_report"]["input_messages"] == 6, "fixture 自身声称 6/6"
+
+    assert archive_noisy(capsys, vault)[0] == EXIT_OK
+    text = archived_notes(vault)[0].read_text(encoding="utf-8")
+
+    assert "6/6" not in text, "传入 JSON 自带的统计不得保留"
+    assert "过滤消息 3/10" in text
+
+
+def test_dry_run_and_real_write_share_stats_and_hash(vault: Path, capsys):
+    code, dry_out, err = archive_noisy(capsys, vault, "--dry-run")
+    assert code == EXIT_OK, err
+    dry_hash = dry_out.split("content_hash: ")[1].splitlines()[0].strip()
+    assert "noise: 保留 3/10" in dry_out
+    assert not archived_notes(vault), "dry-run 不得写文件"
+
+    code, real_out, err = archive_noisy(capsys, vault)
+    assert code == EXIT_OK, err
+    real_hash = real_out.split("content_hash: ")[1].splitlines()[0].strip()
+
+    assert dry_hash == real_hash, "dry-run 与实际写入必须同一口径（同一 content_hash）"
+    assert "noise: 保留 3/10" in real_out
+    assert "过滤消息 3/10" in archived_notes(vault)[0].read_text(encoding="utf-8")
+
+
+# --- --distilled 必须用真实降噪统计（Gate 4 复审） -----------------------------
+
+
+def archive_noisy(capsys, vault, *extra: str):
+    return run(
+        capsys,
+        "archive",
+        "--input",
+        str(NOISY_JSON),
+        "--distilled",
+        str(DISTILLED),
+        "--vault",
+        str(vault),
+        *extra,
+    )
+
+
+def noise_lines(note_path: Path) -> list[str]:
+    body = parse_frontmatter(note_path.read_text(encoding="utf-8"))[1]
+    return [line for line in body.splitlines() if line.startswith(("过滤消息", "系统噪音", "工具噪音", "重复主题", "无效死路", "脱敏"))]
+
+
+def test_distilled_uses_real_noise_stats_in_stdout(vault: Path, capsys):
+    code, out, err = archive_noisy(capsys, vault)
+
+    assert code == EXIT_OK, err
+    assert "noise: 保留 3/10" in out, "必须显示真实降噪结果，而不是 distilled JSON 自带的 6/6"
+    assert "系统 3" in out and "工具 2" in out and "重复 1" in out
+    assert "死路 1" in out and "脱敏 1" in out
+
+
+def test_distilled_writes_real_noise_stats_into_note_body(vault: Path, capsys):
+    assert archive_noisy(capsys, vault)[0] == EXIT_OK
+    note = archived_notes(vault)[0]
+
+    lines = noise_lines(note)
+
+    assert "过滤消息 3/10" in lines
+    assert "系统噪音 3" in lines
+    assert "工具噪音 2" in lines
+    assert "重复主题 1" in lines
+    assert "无效死路 1" in lines
+    assert "脱敏 1" in lines
+
+
+def test_distilled_supplied_stats_are_discarded(vault: Path, capsys):
+    supplied = json.loads(DISTILLED.read_text(encoding="utf-8"))
+    assert supplied["noise_report"]["input_messages"] == 6, "fixture 自身声称 6/6"
+
+    assert archive_noisy(capsys, vault)[0] == EXIT_OK
+    text = archived_notes(vault)[0].read_text(encoding="utf-8")
+
+    assert "6/6" not in text, "传入 JSON 自带的统计不得保留"
+    assert "过滤消息 3/10" in text
+
+
+def test_dry_run_and_real_write_share_stats_and_hash(vault: Path, capsys):
+    code, dry_out, err = archive_noisy(capsys, vault, "--dry-run")
+    assert code == EXIT_OK, err
+    dry_hash = dry_out.split("content_hash: ")[1].splitlines()[0].strip()
+    assert "noise: 保留 3/10" in dry_out
+    assert not archived_notes(vault), "dry-run 不得写文件"
+
+    code, real_out, err = archive_noisy(capsys, vault)
+    assert code == EXIT_OK, err
+    real_hash = real_out.split("content_hash: ")[1].splitlines()[0].strip()
+
+    assert dry_hash == real_hash, "dry-run 与实际写入必须同一口径（同一 content_hash）"
+    assert "noise: 保留 3/10" in real_out
+    assert "过滤消息 3/10" in archived_notes(vault)[0].read_text(encoding="utf-8")
