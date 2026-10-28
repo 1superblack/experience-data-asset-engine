@@ -435,6 +435,19 @@ HANDLERS: dict[str, Callable[[argparse.Namespace], int]] = {
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    # Windows 控制台默认代码页可能不是 UTF-8（中文 Windows 是 GBK/cp936）。
+    # 用户在普通 cmd/PowerShell 里直接跑 `python scripts/cli.py init ...`，
+    # 中文输出会按 cp936 写出，被 UTF-8 终端读成乱码。统一改成 UTF-8 输出。
+    if sys.platform == "win32":
+        for stream in (sys.stdout, sys.stderr):
+            reconfigure = getattr(stream, "reconfigure", None)
+            if reconfigure is not None:
+                try:
+                    reconfigure(encoding="utf-8", errors="replace")
+                except Exception:
+                    # stdout 被替换（如 pytest capsys）时不阻塞主流程
+                    pass
+
     parser = build_parser()
     try:
         args = parser.parse_args(list(argv) if argv is not None else None)
