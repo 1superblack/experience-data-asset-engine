@@ -21,7 +21,7 @@ dependencies = []
 
 [project.optional-dependencies]
 codex = ["zstandard>=0.22"]
-dev = ["pytest>=8", "coverage[toml]>=7.4"]
+dev = ["pytest>=8", "coverage[toml]>=7.4", "ruff>=0.11"]
 
 [project.scripts]
 experience-data-asset-engine = "experience_data_asset_engine.cli:main"

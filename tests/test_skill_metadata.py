@@ -113,13 +113,14 @@ def test_skill_has_exactly_five_top_level_sections() -> None:
 
 
 def test_skill_keeps_capability_boundary() -> None:
-    """能力边界要写准：上架没实现必须写明，离线打包已实现也不许漏写。"""
+    """能力边界要写准：不内置上架流水线要写明，离线打包已实现也不许漏写。"""
     text = SKILL_PATH.read_text(encoding="utf-8")
     assert "上架 / 发布流水线" in text, "上架能力这一行不能被精简掉"
-    assert "**未正式发布**" in text, "未上架/未发 Release 必须显式标注"
+    assert "没有自动上架流水线" in text, "必须写清仓库不内置自动上架流水线"
+    assert re.search(r"GitHub Releases|SkillHub 页面", text), "必须指向平台页面作为实时状态"
     assert "scripts/build_skill_zip.py" in text, "已实现的离线打包能力不能从能力表消失"
     # 不能出现「已发布 / 已上架 / 生产可用」这类与实际不符的措辞
-    for word in ("已发布到 SkillHub", "已上架", "可直接生产使用"):
+    for word in ("已发布到 SkillHub", "已上架", "可直接生产使用", "已在 SkillHub 发布"):
         assert word not in text, f"SKILL.md 出现了未实现的宣称: {word}"
 
 
@@ -191,7 +192,8 @@ def test_readme_does_not_claim_unimplemented_write_path() -> None:
     for stale in ("没有写入能力", "仍是退出码 4", "未实现 |"):
         assert stale not in text, f"README.md 残留过期陈述: {stale}"
     assert "SkillHub" in text
-    assert "上架" in text and "未正式发布" in text, "README.md 应说明尚未上架/发版"
+    assert "不内置自动上架流水线" in text, "README 必须写清仓库不内置自动上架流水线"
+    assert re.search(r"GitHub Releases|SkillHub 页面", text), "必须指向平台页面作为实时状态"
     assert "build_skill_zip.py" in text, "README.md 应说明离线打包已可用"
 
 

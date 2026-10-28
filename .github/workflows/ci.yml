@@ -65,6 +65,9 @@ jobs:
             exit 1
           fi
 
+      - name: 静态检查（未定义名称 / 语法错误 / 未使用导入）
+        run: ruff check --select F,E9 src scripts tests
+
       - name: Skill 元数据校验（正式入口，失败即红）
         run: python scripts/quick_validate.py .
 

@@ -532,12 +532,29 @@ def test_usage_exit_one_covers_encoding() -> None:
 
 
 def test_module_and_validate_docstrings_agree_on_boundary() -> None:
-    """模块 docstring 与 validate() docstring 不能各说一套。"""
+    """模块 docstring 与 validate() docstring 不能各说一套。
+
+    光比关键词顺序不够：曾经出现过「``2`` 读不出……以及无法按 UTF-8 解码」这种
+    把编码问题挂到 ``2`` 上的写法，而代码与 USAGE 都把它算 ``1``。
+    这里直接断言「``2`` 的那一条里不许出现 UTF-8」。
+    """
     module_doc = quick_validate.__doc__ or ""
     validate_doc = quick_validate.validate.__doc__ or ""
-    assert "非 UTF-8" in module_doc
-    assert "取不到文件" in module_doc
-    assert module_doc.index("取不到文件") < module_doc.index("非 UTF-8")
+
+    two_line = next(
+        (line for line in module_doc.splitlines() if line.strip().startswith("* ``2``")),
+        "",
+    )
+    one_line = next(
+        (line for line in module_doc.splitlines() if line.strip().startswith("* ``1``")),
+        "",
+    )
+    assert two_line, "模块 docstring 必须有 ``2`` 的说明"
+    assert one_line, "模块 docstring 必须有 ``1`` 的说明"
+    assert "UTF-8" not in two_line, f"``2`` 的说明里不许出现编码问题：{two_line!r}"
+    assert "UTF-8" in one_line, f"编码问题必须归到 ``1``：{one_line!r}"
+    assert "无法按 UTF-8 解码" not in module_doc, "旧矛盾表述残留"
+
     assert "UnicodeDecodeError" in validate_doc
     assert "``1``" in validate_doc or "1" in validate_doc
 

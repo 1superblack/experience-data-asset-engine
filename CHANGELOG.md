@@ -5,9 +5,9 @@
 ## [0.1.0] - 2026-10-27
 
 首个可用版本：「导入 → 降噪 → 蒸馏 → 写入 → 校验 → 复核 → 卸载」主链路全部打通，
-全部通过 CLI 使用。**可离线打包**为可分发的 zip（根目录含 `SKILL.md`）；
-**不含上架能力**（SkillHub 上架、GitHub Release 流水线未实现，尚未正式发布；
-`dist/` 是被 `.gitignore` 忽略的本机可重建立产物）。
+全部通过 CLI 使用。**可离线打包**为可分发的 zip（根目录含 `SKILL.md`）。
+仓库**不内置自动发布流水线**（GitHub Releases / SkillHub 上架由发布窗口手工执行），
+发布状态以对应平台页面为准；`dist/` 是被 `.gitignore` 忽略的本机可重建立产物。
 
 ### 发布安全与校验器契约（Gate 5b）
 
@@ -281,8 +281,9 @@
 
 ### 已知限制
 
-- **上架/发版未做**：`scripts/build_skill_zip.py` 能离线打 zip，但 SkillHub 上架与
-  GitHub Release 流水线没有实现，尚未正式发布；`dist/` 是被 `.gitignore` 忽略的本机可重建立产物。
+- **无自动发布流水线**：`scripts/build_skill_zip.py` 能离线打 zip，但 GitHub Releases 与
+  SkillHub 上架靠发布窗口手工执行，仓库内没有对应 workflow；发布状态以平台页面为准，
+  `dist/` 是被 `.gitignore` 忽略的本机可重建立产物。
 - **Markdown 导入只支持一种版式**：`# 标题` + `## 角色`。自由格式的导出文本需要先整理成
   这个形状，否则会以「无法识别的角色标题」失败关闭（这是有意的，不做猜测式解析）。
 - **pending 候选需要人工合并**：写入冲突时只落可合并的 Markdown 候选，不会自动替换或删除原笔记。

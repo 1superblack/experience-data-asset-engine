@@ -605,4 +605,3 @@ def test_output_under_a_file_fails_cleanly(tmp_path: Path) -> None:
     )
     assert residue == [], f"失败后留下产物/临时文件：{residue}"
     assert blocker.read_text(encoding="utf-8") == "not a directory\n"
-

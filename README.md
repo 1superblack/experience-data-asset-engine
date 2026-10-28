@@ -24,7 +24,14 @@
 
 ## 安装
 
-**要求 Python 3.11 或更高版本。** 从源码仓库安装，在仓库根目录执行：
+**要求 Python 3.11 或更高版本。** 先取源码：
+
+```bash
+git clone https://github.com/1superblack/experience-data-asset-engine.git
+cd experience-data-asset-engine
+```
+
+然后在仓库根目录安装：
 
 ```bash
 python -m pip install -e ".[dev,codex]"
@@ -32,7 +39,7 @@ python -m pip install -e ".[dev,codex]"
 
 - `codex` 额外依赖 `zstandard`，只有读 Codex `.jsonl.zst` 会话时才需要；不装也能处理
   `.jsonl`、`.json`、`.md`。
-- `dev` 装 `pytest` 与 `coverage`，只跑测试才需要。
+- `dev` 装 `pytest`、`coverage` 与 `ruff`，只跑测试/静态检查才需要。
 - 不安装也可以直接用 `python scripts/cli.py ...` 运行（`scripts/cli.py` 会把 `src/` 加进
   `sys.path`）。
 - 装好后多一个控制台入口 `experience-data-asset-engine`。
@@ -218,7 +225,9 @@ note = prepare_distillation(session, load_config())    # 无模型时抛 Distill
   ```
   同一台机器、同一 zlib 实现下两次打包字节一致；**跨机不保证同哈希**——跨机一致性请比对
   包内文件清单与内容哈希，对外发布的校验值建议由 CI 产出。
-- **未正式发布**：没有上架 SkillHub，也没有 GitHub Release。`dist/` 是本机可重建的
+- **发布渠道**：GitHub（`1superblack/experience-data-asset-engine`）与 SkillHub。
+  仓库内**不内置自动上架流水线**——具体版本是否已发布、发布到哪一版，
+  以 **GitHub Releases / SkillHub 页面**的实时状态为准。`dist/` 是本机可重建的
   离线产物（已被 `.gitignore` 忽略），不是发布留存；每次构建的 SHA256 以当前构建输出为准。
 
 ## 隐私

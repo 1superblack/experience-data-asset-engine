@@ -20,7 +20,7 @@ from . import __version__
 from .adapters.codex_jsonl import load_codex_session
 from .adapters.markdown import load_markdown_session
 from .adapters.normalized_json import load_normalized_json
-from .archive_flow import prepare_archive
+from .archive_flow import ArchivePlan, prepare_archive
 from .config import (
     CONFIG_FILENAME,
     DEFAULT_ARCHIVE_REL,
