@@ -1,6 +1,7 @@
 ---
 name: experience-data-asset-engine
 description: 把 AI 对话与项目过程转化为可复用、可追溯、可治理的经验数据资产，产出带时间与状态管理的 Obsidian 知识笔记。当用户要求归档对话、沉淀项目经验、整理会话记录、生成可复用经验笔记，或在校验、统计时默认排除已过时与已被取代的笔记时使用。默认不写入对话原文，不删除、不覆盖用户已有笔记。
+summary: 把对话与项目过程蒸馏成可复用、可追溯的经验资产笔记
 license: MIT
 metadata:
   slug: experience-data-asset-engine
@@ -56,7 +57,7 @@ metadata:
 | 校验 / 状态 / 到期复核 | `validate` / `status` / `recheck` | 已实现 |
 | 卸载（只删状态目录） | `uninstall --yes` | 已实现 |
 | 离线打包（zip，根目录含 SKILL.md） | `scripts/build_skill_zip.py` | 已实现（本地构建，不联网） |
-| 上架 / 发布流水线（SkillHub / GitHub Release） | — | **未实现**，仓库内没有发布产物 |
+| 上架 / 发布流水线（SkillHub / GitHub Release） | — | **未正式发布**：未上架、未发 Release |
 
 **不要向用户声称做过这些没做的事**：上架 SkillHub 或发 GitHub Release、修改非本工具创建的笔记、
 删除任何 Markdown、把对话原文当笔记写入。

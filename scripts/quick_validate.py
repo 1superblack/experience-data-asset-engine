@@ -17,10 +17,14 @@
 * ``1`` 元数据不合规——文件读得出来，但 frontmatter 结构、YAML 子集或字段规则非法
 * ``2`` 读不出 ``SKILL.md``——不存在、不是普通文件、无权限、以及无法按 UTF-8 解码
 
-读与判的边界就是 ``1`` / ``2`` 的边界：拿不到文本一律算「读不出来」（``2``），
-拿到文本之后的任何问题一律算「内容非法」（``1``）。这条边界保证调用方只需要
-区分「环境问题，修路径/权限」与「内容问题，改元数据」，且任何情况下都不会拿到
-traceback。
+读与判的边界就是 ``1`` / ``2`` 的边界：
+
+* 取不到文件（路径不存在、无权限、I/O 失败）→ ``2``：环境问题，修路径或权限；
+* 文件取到了、但内容不成立（**非 UTF-8 编码**、frontmatter 非法、字段不合规）→ ``1``：
+  内容问题，改元数据。
+
+编码问题刻意算 ``1`` 而不是 ``2``：文件本来就在，只是写坏了。任何情况下都不允许
+冒 traceback。
 
 输出契约：所有**动态值**（路径、displayName、报错里回显的原文）都经
 ``_ascii()`` 转义成 ``\\uXXXX`` 形式，因此 stdout/stderr 恒为纯 ASCII，
@@ -276,7 +280,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"FAIL frontmatter: {_ascii(exc)}")
         print("FAILED: 1 problem(s)")
         return EXIT_INVALID
-    except (PermissionError, UnicodeDecodeError, OSError) as exc:
+    except UnicodeDecodeError as exc:
+        # 文件在、但字节不是合法 UTF-8：这是内容问题（1），不是环境问题（2）。
+        print(f"FAIL encoding: SKILL.md is not valid UTF-8: {_ascii(exc)}")
+        print("FAILED: 1 problem(s)")
+        return EXIT_INVALID
+    except (PermissionError, OSError) as exc:
         print(f"ERROR: cannot read SKILL.md: {_ascii(exc)} (exit {EXIT_UNREADABLE})")
         return EXIT_UNREADABLE
 

@@ -116,7 +116,7 @@ def test_skill_keeps_capability_boundary() -> None:
     """能力边界要写准：上架没实现必须写明，离线打包已实现也不许漏写。"""
     text = SKILL_PATH.read_text(encoding="utf-8")
     assert "上架 / 发布流水线" in text, "上架能力这一行不能被精简掉"
-    assert "**未实现**" in text, "未实现的上架能力必须显式标注"
+    assert "**未正式发布**" in text, "未上架/未发 Release 必须显式标注"
     assert "scripts/build_skill_zip.py" in text, "已实现的离线打包能力不能从能力表消失"
     # 不能出现「已发布 / 已上架 / 生产可用」这类与实际不符的措辞
     for word in ("已发布到 SkillHub", "已上架", "可直接生产使用"):
@@ -191,7 +191,7 @@ def test_readme_does_not_claim_unimplemented_write_path() -> None:
     for stale in ("没有写入能力", "仍是退出码 4", "未实现 |"):
         assert stale not in text, f"README.md 残留过期陈述: {stale}"
     assert "SkillHub" in text
-    assert "上架" in text and "未实现" in text, "README.md 应说明上架/发版仍未实现"
+    assert "上架" in text and "未正式发布" in text, "README.md 应说明尚未上架/发版"
     assert "build_skill_zip.py" in text, "README.md 应说明离线打包已可用"
 
 
@@ -369,3 +369,11 @@ def test_docs_do_not_deny_validator_exists(path: Path) -> None:
     text = path.read_text(encoding="utf-8")
     hits = [pattern for pattern in DENIAL_PATTERNS if re.search(pattern, text)]
     assert not hits, f"{path.name} 仍声称校验器不存在: {hits}"
+
+
+def test_docs_introduce_quick_validator() -> None:
+    """README 必须介绍本地校验入口，并写清它只是预检、不等同平台审核。"""
+    text = README_PATH.read_text(encoding="utf-8")
+    assert "scripts/quick_validate.py" in text, "README 必须给出本地校验入口"
+    assert "不等同平台审核" in text, "必须说明本地校验不等于平台审核"
+    assert "skillhub publish --dry-run" in text, "必须指向官方 dry-run 作为真实兼容依据"

@@ -36,6 +36,10 @@ python -m pip install -e ".[dev,codex]"
 - 不安装也可以直接用 `python scripts/cli.py ...` 运行（`scripts/cli.py` 会把 `src/` 加进
   `sys.path`）。
 - 装好后多一个控制台入口 `experience-data-asset-engine`。
+- 本地元数据预检：`python scripts/quick_validate.py .`，检查 `SKILL.md` 的
+  frontmatter、`name`、`description` 长度、`metadata.slug/displayName/version`。
+  它只是 **Agent Skill 的子集预检**，**不等同平台审核**；真实平台兼容性以官方
+  `skillhub publish --dry-run` 为准。
 - 如果拿到的是分发压缩包（只有 `scripts/`、`src/`、`references/`、`agents/` 与几个根级
   Markdown），**不需要也不要执行 pip 安装**——直接用
   `python scripts/cli.py <子命令> ...` 即可；本文后面的命令把
@@ -211,8 +215,8 @@ note = prepare_distillation(session, load_config())    # 无模型时抛 Distill
   ```
   同一台机器、同一 zlib 实现下两次打包字节一致；**跨机不保证同哈希**——跨机一致性请比对
   包内文件清单与内容哈希，对外发布的校验值建议由 CI 产出。
-- **未实现**：上架 SkillHub、发 GitHub Release。仓库内没有发布产物，
-  也不存在「上架后一键安装」路径——请按上面的「安装」一节从源码或 zip 安装。
+- **未正式发布**：没有上架 SkillHub，也没有 GitHub Release。`dist/` 是本机可重建的
+  离线产物（已被 `.gitignore` 忽略），不是发布留存；每次构建的 SHA256 以当前构建输出为准。
 
 ## 隐私
 

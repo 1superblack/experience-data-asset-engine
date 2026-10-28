@@ -8,6 +8,24 @@
 全部通过 CLI 使用。**可离线打包**为可分发的 zip（根目录含 `SKILL.md`）；
 **不含上架能力**（SkillHub 上架、GitHub Release 流水线未实现，仓库内没有发布产物）。
 
+### 发布安全与校验器契约（Gate 5b）
+
+- **打包原子化**：先写同目录唯一临时 zip，校验通过后 `os.replace` 提交；任何失败都删临时文件、
+  最终路径保持原样（原已存在的合法 zip 字节不变）。此前是「先写最终产物再校验」，
+  校验失败时敏感包已落盘。
+- **拒绝符号链接与路径逃逸**：根级文件、`ROOT_DIRS`、递归子文件全部检查 symlink / reparse /
+  junction，并用 `resolve(strict=True)` 确认真实路径仍在仓库内，命中即 `PackageError` 失败关闭。
+- **统一原子文本写入**：`config.write_text_atomic` 成为唯一实现（唯一临时文件、flush、fsync、
+  `os.replace`、`BaseException` 清理），`writer` 与 `distill` 复用，删掉 `distill` 里那个
+  失败不清理的固定 `.tmp`。
+- **校验器契约收紧**：`displayName` 首尾空格真正生效（此前 `strip()` 后自比永远为假）、
+  YAML 子集拒绝序列项/重复键/缩进跳变且报行号、输出对动态值做 `\uXXXX` 转义，
+  退出码边界明确（取不到文件 2 / 内容不成立含编码非法 1）。
+- **UTF-8 子进程护栏加严**：不再只看「有没有传 env」，而是确认 env 里真有
+  `PYTHONUTF8=1` 与 `PYTHONIOENCODING=utf-8`，并覆盖两个测试文件。
+- **文档口径**：`SKILL.md` 增加顶层 `summary`；README 说明本地校验器只是子集预检、
+  不等同平台审核；「仓库内没有发布产物」改为「未正式发布，`dist/` 是可重建的本地产物」。
+
 ### 发布准备收口（Gate 5 复审）
 
 - **子进程固定 UTF-8**：`tests/test_package.py` 所有 `subprocess` 调用显式注入

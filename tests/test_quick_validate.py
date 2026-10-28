@@ -392,12 +392,13 @@ def test_cli_exit_two_when_skill_md_is_not_a_file(tmp_path: Path) -> None:
     assert "Traceback" not in proc.stdout + proc.stderr
 
 
-def test_cli_exit_two_when_skill_md_is_not_utf8(tmp_path: Path) -> None:
+def test_cli_exit_one_when_skill_md_is_not_utf8(tmp_path: Path) -> None:
+    """文件在、内容编码坏了 → 内容问题（1），不是环境问题（2）。"""
     (tmp_path / "SKILL.md").write_bytes(b"---\nname: x\n---\n\xff\xfe not utf8\n")
     proc = run_cli(tmp_path)
-    assert proc.returncode == 2, proc.stdout + proc.stderr
+    assert proc.returncode == 1, proc.stdout + proc.stderr
     assert "Traceback" not in proc.stdout + proc.stderr
-    assert proc.stdout.startswith("ERROR: cannot read SKILL.md"), proc.stdout
+    assert proc.stdout.startswith("FAIL encoding:"), proc.stdout
     assert proc.stdout.isascii(), proc.stdout
 
 
