@@ -37,6 +37,7 @@ CREDENTIAL_PATTERNS = (
 EXPECTED_TOP_LEVEL = {
     "SKILL.md",
     "LICENSE",
+    "COMMERCIAL-LICENSE.md",
     "README.md",
     "CHANGELOG.md",
     "SECURITY.md",
@@ -54,6 +55,7 @@ REQUIRED_ROOT_FILES = frozenset(
     {
         "SKILL.md",
         "LICENSE",
+        "COMMERCIAL-LICENSE.md",
         "README.md",
         "CHANGELOG.md",
         "SECURITY.md",
@@ -218,7 +220,13 @@ def _make_line_ending_repo(base: Path, newline: bytes) -> Path:
     for name in ("src/pkg", "scripts", "references", "agents"):
         (base / name).mkdir(parents=True)
     body = newline.join([b"# demo", b"", b"alpha", b"beta", b""])
-    for name in ("SKILL.md", "LICENSE", "README.md", "references/doc.md"):
+    for name in (
+        "SKILL.md",
+        "LICENSE",
+        "COMMERCIAL-LICENSE.md",
+        "README.md",
+        "references/doc.md",
+    ):
         (base / name).write_bytes(body)
     (base / "src" / "pkg" / "__init__.py").write_bytes(body)
     (base / "scripts" / "cli.py").write_bytes(body)
@@ -266,6 +274,7 @@ def _make_synthetic_repo(base: Path) -> Path:
 
     (base / "SKILL.md").write_text("---\nname: demo\n---\n# demo\n", encoding="utf-8")
     (base / "LICENSE").write_text("MIT\n", encoding="utf-8")
+    (base / "COMMERCIAL-LICENSE.md").write_text("# Commercial licensing\n", encoding="utf-8")
     (base / "README.md").write_text("# demo\n", encoding="utf-8")
     (base / "src" / "pkg" / "__init__.py").write_text("", encoding="utf-8")
     (base / "scripts" / "cli.py").write_text("print('hi')\n", encoding="utf-8")
@@ -299,6 +308,7 @@ def test_exclusion_rules_hold_on_synthetic_tree(tmp_path: Path) -> None:
     assert names == {
         "SKILL.md",
         "LICENSE",
+        "COMMERCIAL-LICENSE.md",
         "README.md",
         "agents/openai.yaml",
         "references/doc.md",

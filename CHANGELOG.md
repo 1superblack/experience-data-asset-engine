@@ -2,12 +2,32 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
-## [0.1.0] - 2026-10-27
+## [0.1.0] - 2026-10-28
 
 首个可用版本：「导入 → 降噪 → 蒸馏 → 写入 → 校验 → 复核 → 卸载」主链路全部打通，
 全部通过 CLI 使用。**可离线打包**为可分发的 zip（根目录含 `SKILL.md`）。
 仓库**不内置自动发布流水线**（GitHub Releases / SkillHub 上架由发布窗口手工执行），
 发布状态以对应平台页面为准；`dist/` 是被 `.gitignore` 忽略的本机可重建立产物。
+
+### 发布定位与构建兼容（Gate 5e / 5f）
+
+- **对外定位定稿**：主文案为「让每一次 AI 对话，都沉淀成下次还能复用的经验资产」，
+  副文案强调保留决策依据、失败路径与失效边界，让经验可追溯、可复核、可长期复用。
+- **差异化明确**：不把产品描述成聊天导出、摘要或通用 AI Memory；核心差异是
+  “高成本探索 → 可审计、可复核、保守写回的经验资产”，并用证据、状态、复核日期与
+  取代关系管理经验生命周期。
+- **当前平台边界**：原生支持 Obsidian；输出为标准 Markdown + YAML frontmatter，
+  暂未提供 Logseq、Notion、思源等知识库的官方直写适配。
+- **构建链修复**：SPDX `license = "MIT"` 要求 `setuptools>=77`，构建下限从 68 收紧；
+  Windows CLI 入口固定 stdout/stderr 为 UTF-8，并补构建元数据与 Windows 编码回归测试。
+- **静态门禁**：dev 依赖增加 `ruff`，CI 执行 `ruff check --select F,E9`，拦住未定义名称、
+  语法错误和未使用导入。
+- **安装口径**：普通用户的源码安装命令收敛为 `pip install -e ".[codex]"`；
+  `dev` 仅用于测试与静态检查。
+- **双授权定稿**：开源许可由 MIT 调整为 `AGPL-3.0-only`；无法遵守 AGPL 的闭源商业
+  集成、商业再分发或托管服务可另行申请书面商业授权。`LICENSE` 保存完整 AGPL 正文，
+  `COMMERCIAL-LICENSE.md` 说明商业授权边界，`pyproject.toml` 与 Skill 元数据同步为
+  `AGPL-3.0-only`。
 
 ### 发布安全与校验器契约（Gate 5b）
 

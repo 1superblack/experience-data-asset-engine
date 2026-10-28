@@ -21,6 +21,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PYPROJECT = ROOT / "pyproject.toml"
+LICENSE_FILE = ROOT / "LICENSE"
+COMMERCIAL_LICENSE_FILE = ROOT / "COMMERCIAL-LICENSE.md"
 
 #: SPDX 字符串 license 需要的最低 setuptools 版本。
 MIN_SETUPTOOLS_FOR_SPDX = 77
@@ -37,7 +39,15 @@ def _requires_versions() -> list[str]:
 def test_license_is_spdx_string() -> None:
     """``license`` 必须是 SPDX 字符串，不能回退成旧表形式。"""
     license_field = _pyproject()["project"]["license"]
-    assert license_field == "MIT", f"license 应为 SPDX 字符串 'MIT'，实际 {license_field!r}"
+    assert license_field == "AGPL-3.0-only", (
+        f"license 应为 SPDX 字符串 'AGPL-3.0-only'，实际 {license_field!r}"
+    )
+
+
+def test_license_files_include_open_source_and_commercial_notices() -> None:
+    """分发包必须同时带 AGPL 正文与商业授权说明。"""
+    files = set(_pyproject()["project"]["license-files"])
+    assert files == {"LICENSE", "COMMERCIAL-LICENSE.md"}
 
 
 def test_setuptools_floor_is_77() -> None:
@@ -53,3 +63,13 @@ def test_no_legacy_license_classifier() -> None:
     classifiers = [str(item) for item in _pyproject()["project"].get("classifiers", [])]
     offenders = [item for item in classifiers if item.startswith("License ::")]
     assert not offenders, f"classifiers 里仍有旧式 License 分类：{offenders}"
+
+
+def test_license_files_are_present_and_match_the_declared_model() -> None:
+    """LICENSE 必须是完整 AGPL 正文，商业授权边界必须单独成文。"""
+    license_text = LICENSE_FILE.read_text(encoding="utf-8")
+    commercial_text = COMMERCIAL_LICENSE_FILE.read_text(encoding="utf-8")
+    assert "GNU AFFERO GENERAL PUBLIC LICENSE" in license_text
+    assert "Version 3, 19 November 2007" in license_text
+    assert "AGPL-3.0-only" in commercial_text
+    assert "书面商业许可协议" in commercial_text

@@ -1,4 +1,4 @@
 interface:
   display_name: "数据资产引擎｜经验资产化"
-  short_description: "把 AI 对话与项目过程转化为可复用、可追溯、可治理的经验数据资产"
-  default_prompt: "使用 $experience-data-asset-engine 把这段对话与项目过程蒸馏为可复用的经验数据资产笔记，保留决策与原由、被否决方案和证据。"
+  short_description: "保留决策依据、失败路径与失效边界，让经验可追溯、可复核、可长期复用"
+  default_prompt: "使用 $experience-data-asset-engine 把这段 AI 对话与项目过程沉淀成可复用的经验资产，保留决策依据、失败路径、证据与失效边界，并给出状态与复核日期。"

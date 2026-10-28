@@ -1,17 +1,43 @@
 # 数据资产引擎｜经验资产化
 
-> 把 AI 对话与项目过程转化为可复用、可追溯、可治理的经验数据资产。
+> 让每一次 AI 对话，都沉淀成下次还能复用的经验资产。
+>
+> 保留决策依据、失败路径与失效边界，让经验可追溯、可复核、可长期复用。
 
-把 AI 对话蒸馏成**可复用、可追溯、带状态与复核日期**的 Obsidian 知识笔记，而不是把聊天原文
-搬进知识库。
+复杂问题第一次解决，本来就需要搜索、试错和判断。真正浪费的是第二次遇到同类问题时，
+又重新从零开始。
 
-一个对话结束后，真正有价值的通常只有几件事：当时要解决什么、查明了哪些事实、做了哪个决策
-以及为什么、哪些方案被否决、证据在哪、下次能复用哪条经验。其余都是过程噪声。本工具只保留
-这几件事，并给每条笔记标上时间、状态、复核日期和取代关系。
+数据资产引擎把 Codex、Claude、WorkBuddy 等会话与项目过程整理成经验资产：保留决策与理由、
+被否决方案、证据、风险和可复用方法，并记录来源、状态与复核日期。它不是聊天导出工具，
+也不是给 AI 再加一个记忆库。
+
+> 第一次探索是成本，第二次复用才是资产。
 
 - Skill slug：`experience-data-asset-engine`
 - 版本：`0.1.0`
-- 许可：MIT
+- 许可：AGPL-3.0-only，提供独立商业授权
+
+## 为什么不是另一个聊天归档或 AI 记忆工具
+
+常见方案通常只覆盖其中一段：
+
+| 常见方案 | 主要解决的问题 | 数据资产引擎的不同 |
+|---|---|---|
+| 聊天导出工具 | 把会话保存成文件 | 不只保存记录，还提炼决策、证据、失败路径和复用方法 |
+| 摘要工具 | 把长对话压缩成一段文字 | 只写摘要不算完成；决策与被否决方案缺失会失败关闭 |
+| AI Memory / RAG | 让 AI 下次能检索到相关内容 | 除了“找得到”，还要回答“是否可信、是否仍有效、人能否复核” |
+| 自动第二大脑 | 自动维护和改写知识库 | 默认保守写入：冲突只生成待合并候选，不覆盖手写笔记，不自动判死结论 |
+| 一次性归档 Skill | 完成当前这次保存 | 通过来源键与内容哈希保持幂等，管理复核日期、过时和取代关系 |
+
+它真正优化的是：
+
+> 不只让 AI 记得，还要让人知道这条经验来自哪里、为什么成立、什么时候应该失效。
+
+因此它更适合已经完成过一次高成本探索、准备把结果转成长期资产的用户；不适合只想自动保存
+聊天或需要实时记忆注入的场景。
+
+当前版本原生支持 Obsidian，输出为标准 Markdown + YAML frontmatter，便于迁移。暂未提供
+Logseq、Notion、思源等知识库的官方直写适配。
 
 ## 四条设计原则
 
@@ -34,12 +60,13 @@ cd experience-data-asset-engine
 然后在仓库根目录安装：
 
 ```bash
-python -m pip install -e ".[dev,codex]"
+python -m pip install -e ".[codex]"
 ```
 
 - `codex` 额外依赖 `zstandard`，只有读 Codex `.jsonl.zst` 会话时才需要；不装也能处理
   `.jsonl`、`.json`、`.md`。
-- `dev` 装 `pytest`、`coverage` 与 `ruff`，只跑测试/静态检查才需要。
+- 开发测试再安装 `dev`：`python -m pip install -e ".[dev,codex]"`；它提供 `pytest`、
+  `coverage` 与 `ruff`。
 - 不安装也可以直接用 `python scripts/cli.py ...` 运行（`scripts/cli.py` 会把 `src/` 加进
   `sys.path`）。
 - 装好后多一个控制台入口 `experience-data-asset-engine`。
@@ -292,4 +319,11 @@ experience-data-asset-engine uninstall --vault /path/to/vault --yes
 
 ## 许可证
 
-MIT，见 [LICENSE](LICENSE)。
+默认开源许可为 **GNU Affero General Public License v3.0 only
+（AGPL-3.0-only）**，完整条款见 [LICENSE](LICENSE)。
+
+无法或不希望遵守 AGPL 的组织可以申请独立商业授权，适用场景和联系入口见
+[COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md)。商业授权只在双方签署书面协议后生效。
+
+当前版本暂不接收外部代码贡献，原因与后续贡献流程见
+[CONTRIBUTING.md](CONTRIBUTING.md)。

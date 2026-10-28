@@ -48,6 +48,7 @@ from pathlib import Path, PurePosixPath
 ROOT_FILES = (
     "SKILL.md",
     "LICENSE",
+    "COMMERCIAL-LICENSE.md",
     "README.md",
     "CHANGELOG.md",
     "SECURITY.md",
@@ -195,8 +196,8 @@ def collect_entries(repo_root: Path) -> list[PurePosixPath]:
     for name in ROOT_FILES:
         path = root / name
         if not path.exists() and not _is_link(path):
-            if name == "SKILL.md" or name in ("LICENSE", "README.md"):
-                # 这三个是 SkillHub 的必需项，缺了直接失败，不静默跳过。
+            if name in ("SKILL.md", "LICENSE", "COMMERCIAL-LICENSE.md", "README.md"):
+                # 这些是分发与许可的必需项，缺了直接失败，不静默跳过。
                 missing.append(name)
             continue
         # 悬空链接也会走到这里：exists() 为 False 但 _is_link 为 True，照样失败关闭。

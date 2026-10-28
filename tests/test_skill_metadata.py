@@ -24,6 +24,9 @@ REFERENCE_PATHS = sorted((ROOT / "references").glob("*.md"))
 EXPECTED_SLUG = "experience-data-asset-engine"
 EXPECTED_DISPLAY_NAME = "数据资产引擎｜经验资产化"
 EXPECTED_VERSION = "0.1.0"
+EXPECTED_LICENSE = "AGPL-3.0-only"
+EXPECTED_SUMMARY = "让每一次 AI 对话，都沉淀成下次还能复用的经验资产"
+EXPECTED_SUBHEADLINE = "保留决策依据、失败路径与失效边界，让经验可追溯、可复核、可长期复用"
 
 REQUIRED_METADATA_KEYS = (
     "name",
@@ -32,6 +35,7 @@ REQUIRED_METADATA_KEYS = (
     "metadata.slug",
     "metadata.displayName",
     "metadata.version",
+    "metadata.summary",
 )
 
 
@@ -94,7 +98,8 @@ def test_skill_metadata_values() -> None:
     assert data["metadata.slug"] == EXPECTED_SLUG
     assert data["metadata.displayName"] == EXPECTED_DISPLAY_NAME
     assert data["metadata.version"] == EXPECTED_VERSION
-    assert data["license"].upper() == "MIT"
+    assert data["metadata.summary"] == EXPECTED_SUMMARY
+    assert data["license"] == EXPECTED_LICENSE
 
 
 def test_skill_description_mentions_trigger_and_guardrails() -> None:
@@ -144,6 +149,11 @@ def test_openai_yaml_references_skill_slug() -> None:
     assert f"${EXPECTED_SLUG}" in text, "default_prompt 里应引用 $<slug>"
 
 
+def test_openai_yaml_short_description_matches_positioning() -> None:
+    text = OPENAI_YAML_PATH.read_text(encoding="utf-8")
+    assert EXPECTED_SUBHEADLINE in text
+
+
 # --- README -----------------------------------------------------------------
 
 
@@ -171,10 +181,26 @@ def test_openai_yaml_references_skill_slug() -> None:
         "过期只过滤，不删除",
         "## 隐私",
         "## 卸载",
+        "## 为什么不是另一个聊天归档或 AI 记忆工具",
+        "当前版本原生支持 Obsidian",
     ],
 )
 def test_readme_covers_required_topic(needle: str) -> None:
     assert needle in README_PATH.read_text(encoding="utf-8"), f"README.md 缺少: {needle}"
+
+
+def test_readme_uses_approved_public_positioning() -> None:
+    text = README_PATH.read_text(encoding="utf-8")
+    assert EXPECTED_SUMMARY in text
+    assert EXPECTED_SUBHEADLINE in text
+    assert "第一次探索是成本，第二次复用才是资产" in text
+    assert "不只让 AI 记得" in text
+
+
+def test_readme_install_separates_user_and_developer_dependencies() -> None:
+    text = README_PATH.read_text(encoding="utf-8")
+    assert 'python -m pip install -e ".[codex]"' in text
+    assert 'python -m pip install -e ".[dev,codex]"' in text
 
 
 def test_readme_distinguishes_dry_run_and_staging() -> None:
@@ -217,7 +243,14 @@ FORBIDDEN_PATTERNS = {
 
 
 def _documents() -> list[Path]:
-    files = [SKILL_PATH, README_PATH, CHANGELOG_PATH, OPENAI_YAML_PATH]
+    files = [
+        SKILL_PATH,
+        README_PATH,
+        CHANGELOG_PATH,
+        OPENAI_YAML_PATH,
+        ROOT / "COMMERCIAL-LICENSE.md",
+        ROOT / "CONTRIBUTING.md",
+    ]
     return files + REFERENCE_PATHS
 
 
