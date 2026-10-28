@@ -244,23 +244,41 @@ def read_json_file(path: Path) -> Any:
         ) from None
 
 
-def write_json_atomic(path: Path, payload: Mapping[str, Any]) -> Path:
-    """临时文件 + 原子替换；失败时清理临时文件，不留半截文件。"""
+def write_text_atomic(path: Path, text: str) -> Path:
+    """同目录唯一临时文件 + fsync + 原子替换；失败时清理临时文件并保持原文件不变。
+
+    三条约束：
+
+    - **同目录**：``os.replace`` 只在同一文件系统内保证原子；临时文件放进系统临时
+      目录一旦跨设备就会直接失败（``OSError``），把「原子」这条承诺丢掉。
+    - **唯一名**：用 ``mkstemp`` 而不是 ``<name>.tmp``。固定名字有两个坏处：并发写入
+      （同名笔记被两个进程同时归档）会互相踩；中途失败还会在 vault 里留下一个永不
+      清理的 ``.tmp``。
+    - **fsync 后再替换**：只 flush 不 fsync 时，掉电可能得到一个「名字换了、内容是空」的
+      笔记；先落盘再替换才是真原子。
+
+    失败路径只做一件事：删掉自己的临时文件，让目标文件保持调用前的字节。
+    """
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp_name = tempfile.mkstemp(dir=str(target.parent), prefix=".tmp-", suffix=".json")
+    fd, tmp_name = tempfile.mkstemp(dir=str(target.parent), prefix=".edae-", suffix=".tmp")
     tmp_path = Path(tmp_name)
     try:
         with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
-            json.dump(payload, handle, ensure_ascii=False, indent=2)
-            handle.write("\n")
+            handle.write(text)
             handle.flush()
             os.fsync(handle.fileno())
         os.replace(tmp_path, target)
     except BaseException:
+        # 半截临时文件不能留：它既不完整，也可能带着未通过校验的内容。
         tmp_path.unlink(missing_ok=True)
         raise
     return target
+
+
+def write_json_atomic(path: Path, payload: Mapping[str, Any]) -> Path:
+    """JSON 版原子写入：序列化后复用 :func:`write_text_atomic`（只保留一份实现）。"""
+    return write_text_atomic(path, json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
 
 
 def _ensure_dir(directory: Path, label: str) -> Path:

@@ -11,6 +11,7 @@ import hashlib
 import importlib.util
 import os
 import re
+import shutil
 import subprocess
 import sys
 import zipfile
@@ -318,28 +319,87 @@ def test_planted_credential_fails_closed(tmp_path: Path) -> None:
     assert "凭据" in proc.stderr
 
 
-def test_every_subprocess_call_pins_utf8() -> None:
-    """本文件里每个 subprocess 调用都必须显式传 env。
+#: 子进程必须看到的两个环境变量。缺任一个，Windows 中文机器上就会按 GBK 写 stderr。
+UTF8_ENV_REQUIRED = {"PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
 
-    漏一处就会出现「换台机器（代码页不同）就红」的伪失败，
-    而真正的修复是给子进程固定 UTF-8，不是改断言。
+#: 断言护栏要扫的文件：本文件与 quick_validate 的测试（它同样真的起子进程）。
+GUARDED_TEST_FILES = ("test_package.py", "test_quick_validate.py")
+
+
+def _env_keyword_problem(node: ast.Call) -> list[str]:
+    """检查单个 subprocess 调用的 ``env=`` 是否**真的**固定了 UTF-8。
+
+    只看「有没有 env 关键字」是不够的：``env={}`` 也会让子进程丢掉这两个变量，
+    等于护栏形同虚设。所以要么是对 ``utf8_env()`` 的调用，要么是含两个键值的字面量 dict。
     """
-    tree = ast.parse(Path(__file__).read_text(encoding="utf-8"))
-    offenders: list[int] = []
+    env_keywords = [kw for kw in node.keywords if kw.arg == "env"]
+    if not env_keywords:
+        return ["没有传 env="]
+    value = env_keywords[0].value
+    if isinstance(value, ast.Call):
+        name = value.func.attr if isinstance(value.func, ast.Attribute) else getattr(
+            value.func, "id", ""
+        )
+        if name == "utf8_env":
+            return []
+        return [f"env= 调用的不是 utf8_env()，而是 {ast.unparse(value)}"]
+    if isinstance(value, ast.Dict):
+        pairs: dict[str, str] = {}
+        for key, item in zip(value.keys, value.values):
+            if not (isinstance(key, ast.Constant) and isinstance(key.value, str)):
+                continue
+            pairs[key.value] = (
+                item.value if isinstance(item, ast.Constant) else ast.unparse(item)
+            )
+        missing = [name for name in UTF8_ENV_REQUIRED if name not in pairs]
+        if missing:
+            return [f"env 字面量缺少 {missing}"]
+        wrong = [
+            f"{name}={pairs[name]}"
+            for name, want in UTF8_ENV_REQUIRED.items()
+            if pairs[name] != want
+        ]
+        if wrong:
+            return [f"env 字面量取值不对：{wrong}"]
+        return []
+    return [f"env= 既不是 utf8_env() 调用也不是字面量 dict，而是 {ast.unparse(value)}"]
+
+
+def _subprocess_calls(tree: ast.AST) -> list[ast.Call]:
+    calls: list[ast.Call] = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
         func = node.func
-        name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")
-        if name not in {"run", "check_output", "check_call", "Popen"}:
+        if not isinstance(func, ast.Attribute):
             continue
-        if isinstance(func, ast.Attribute) and not (
-            isinstance(func.value, ast.Name) and func.value.id == "subprocess"
-        ):
+        if not (isinstance(func.value, ast.Name) and func.value.id == "subprocess"):
             continue
-        if not any(kw.arg == "env" for kw in node.keywords):
-            offenders.append(node.lineno)
-    assert not offenders, f"这些行的子进程调用没有传 env: {offenders}"
+        if func.attr in {"run", "check_output", "check_call", "Popen"}:
+            calls.append(node)
+    return calls
+
+
+def test_every_subprocess_call_pins_utf8() -> None:
+    """所有测试里的 subprocess 调用都必须**真的**把子进程固定成 UTF-8。
+
+    两重收紧（原有断言没删，只是在它上面加严）：
+
+    1. 扫描范围从本文件扩到 ``test_quick_validate.py``——它也真的 ``subprocess.run``
+       起打包脚本，漏掉它等于护栏只有一半。
+    2. ``env=`` 存在还不够：``env={}`` 同样能过旧检查，但子进程会在中文 Windows 上
+       按 GBK 写 stderr。必须是对 ``utf8_env()`` 的调用，或是含两个键值的字面量 dict。
+
+    失败时给出文件名与行号，便于直接定位。
+    """
+    offenders: list[str] = []
+    for name in GUARDED_TEST_FILES:
+        path = Path(__file__).resolve().parent / name
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in _subprocess_calls(tree):
+            for reason in _env_keyword_problem(node):
+                offenders.append(f"{name}:{node.lineno}: {reason}")
+    assert not offenders, "这些子进程调用没有把子进程固定成 UTF-8：\n" + "\n".join(offenders)
 
 
 def test_shipped_docs_have_no_placeholder_contact(packaged: tuple[Path, str]) -> None:
@@ -360,3 +420,150 @@ def test_shipped_docs_have_no_placeholder_contact(packaged: tuple[Path, str]) ->
                 if token in text:
                     offenders.append(f"{name}: {token}")
     assert not offenders, f"包内文档仍有占位内容: {offenders}"
+
+
+# --- 失败关闭：不产出、不覆盖 -------------------------------------------------
+#
+# 这里断言的都是「磁盘上到底剩了什么」。自检失败的包一个字节都不该落到最终路径：
+# 一个带 ``sk-`` 凭据的 zip 留在 dist/ 里，下一步就会被人工上传出去。
+
+
+def _plant_credential(repo: Path) -> None:
+    (repo / "references" / "leak.md").write_text(
+        "token: sk-abcdefghijklmnop1234\n", encoding="utf-8"
+    )
+
+
+def _listing(directory: Path) -> list[str]:
+    return sorted(path.name for path in directory.iterdir()) if directory.is_dir() else []
+
+
+def test_failed_self_check_leaves_no_output_file(tmp_path: Path) -> None:
+    """自检失败时，最终 output 路径必须根本不存在（连空文件都不许有）。"""
+    repo = _make_synthetic_repo(tmp_path / "repo")
+    _plant_credential(repo)
+    out_dir = tmp_path / "artifacts"
+    out = out_dir / "leak.zip"
+
+    proc = run_build(out, cwd=tmp_path, repo=repo)
+
+    assert proc.returncode != 0
+    assert not out.exists(), "自检失败却把带凭据的 zip 落到了最终路径"
+    assert "校验失败" in proc.stderr, proc.stderr
+    assert _listing(out_dir) == [], f"临时文件没清干净：{_listing(out_dir)}"
+
+
+def test_failed_self_check_keeps_existing_output_bytes(tmp_path: Path) -> None:
+    """已经有一份合法的旧 zip 时，失败的重建**不能**把它改掉。"""
+    repo = _make_synthetic_repo(tmp_path / "repo")
+    out = tmp_path / "skill.zip"
+    first = run_build(out, cwd=tmp_path, repo=repo)
+    assert first.returncode == 0, first.stderr
+    before = hashlib.sha256(out.read_bytes()).hexdigest()
+
+    _plant_credential(repo)
+    proc = run_build(out, cwd=tmp_path, repo=repo)
+
+    assert proc.returncode != 0
+    assert hashlib.sha256(out.read_bytes()).hexdigest() == before, "失败的重建覆盖了既有合法产物"
+    assert "校验失败" in proc.stderr, proc.stderr
+    assert not [p for p in tmp_path.iterdir() if p.name.endswith(".tmp")], "临时文件没清干净"
+
+
+def test_successful_build_still_reproducible_after_atomic_rewrite(tmp_path: Path) -> None:
+    """原子化改造不能动产物字节：同源两次打包仍必须同哈希。"""
+    repo = _make_synthetic_repo(tmp_path / "repo")
+    first = tmp_path / "a.zip"
+    second = tmp_path / "b.zip"
+    assert run_build(first, cwd=tmp_path, repo=repo).returncode == 0
+    assert run_build(second, cwd=tmp_path, repo=repo).returncode == 0
+    assert hashlib.sha256(first.read_bytes()).hexdigest() == hashlib.sha256(
+        second.read_bytes()
+    ).hexdigest()
+
+
+# --- 符号链接：命中即失败关闭 -------------------------------------------------
+
+
+def _symlink_or_skip(link: Path, target: Path, *, target_is_directory: bool) -> None:
+    """建符号链接。
+
+    Windows 上建链接需要开发者模式或管理员权限，普通用户会拿到 WinError 1314；
+    那种情况下 ``pytest.skip``（这是环境限制，不是被测代码的行为）。
+    **只**吞权限类异常：其它 OSError 照常抛，避免把真实缺陷藏进 skip 里。
+    """
+    try:
+        link.symlink_to(target, target_is_directory=target_is_directory)
+    except NotImplementedError as exc:  # pragma: no cover - 平台不支持 symlink
+        pytest.skip(f"当前平台不支持符号链接：{exc}")
+    except PermissionError as exc:  # pragma: no cover - Windows 未开开发者模式
+        pytest.skip(f"当前环境不允许创建符号链接：{exc}")
+    except OSError as exc:  # pragma: no cover - Windows 的 ERROR_PRIVILEGE_NOT_HELD
+        winerror = getattr(exc, "winerror", None)
+        if winerror in {5, 1314}:
+            pytest.skip(f"当前环境不允许创建符号链接：{exc}")
+        raise
+
+
+def test_symlinked_file_pointing_outside_repo_is_rejected(tmp_path: Path) -> None:
+    """指向仓库外的符号链接文件绝不能被打进包（真实踩过的 ``linked-secret.txt``）。"""
+    repo = _make_synthetic_repo(tmp_path / "repo")
+    outside = tmp_path / "outside-secret.md"
+    outside.write_text("# 仓库外机密\n", encoding="utf-8")
+    _symlink_or_skip(
+        repo / "references" / "linked-secret.md", outside, target_is_directory=False
+    )
+
+    out = tmp_path / "linked.zip"
+    proc = run_build(out, cwd=tmp_path, repo=repo)
+
+    assert proc.returncode != 0
+    assert "linked-secret.md" in proc.stderr, proc.stderr
+    assert not out.exists()
+
+
+def test_symlinked_root_dir_is_rejected(tmp_path: Path) -> None:
+    """``references`` 整个目录是指向外部的链接时，必须直接失败。"""
+    repo = _make_synthetic_repo(tmp_path / "repo")
+    outside = tmp_path / "outside-references"
+    outside.mkdir()
+    (outside / "doc.md").write_text("# 外部文档\n", encoding="utf-8")
+    shutil.rmtree(repo / "references")
+    _symlink_or_skip(repo / "references", outside, target_is_directory=True)
+
+    out = tmp_path / "rootdir.zip"
+    proc = run_build(out, cwd=tmp_path, repo=repo)
+
+    assert proc.returncode != 0
+    assert "references" in proc.stderr, proc.stderr
+    assert not out.exists()
+
+
+def test_symlinked_subdir_file_is_rejected(tmp_path: Path) -> None:
+    """深层子目录里的链接同样要拦——``src/pkg/evil.py -> 仓库外``。"""
+    repo = _make_synthetic_repo(tmp_path / "repo")
+    outside = tmp_path / "outside-module.py"
+    outside.write_text("SECRET = 'external'\n", encoding="utf-8")
+    _symlink_or_skip(repo / "src" / "pkg" / "evil.py", outside, target_is_directory=False)
+
+    out = tmp_path / "subdir.zip"
+    proc = run_build(out, cwd=tmp_path, repo=repo)
+
+    assert proc.returncode != 0
+    assert "evil.py" in proc.stderr, proc.stderr
+    assert not out.exists()
+
+
+def test_symlink_disguised_as_markdown_is_rejected(tmp_path: Path) -> None:
+    """名字伪装成普通 ``.md`` 不构成豁免：判断依据是文件系统类型，不是后缀。"""
+    repo = _make_synthetic_repo(tmp_path / "repo")
+    outside = tmp_path / "outside-notes.md"
+    outside.write_text("# 外部笔记\n", encoding="utf-8")
+    _symlink_or_skip(repo / "agents" / "notes.md", outside, target_is_directory=False)
+
+    out = tmp_path / "disguised.zip"
+    proc = run_build(out, cwd=tmp_path, repo=repo)
+
+    assert proc.returncode != 0
+    assert "notes.md" in proc.stderr, proc.stderr
+    assert not out.exists()

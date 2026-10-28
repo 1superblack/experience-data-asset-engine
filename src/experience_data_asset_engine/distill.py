@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Any, Final
 
 from . import noise as noise_module
-from .config import AppConfig, ensure_inside_vault, write_json_atomic
+from .config import AppConfig, ensure_inside_vault, write_json_atomic, write_text_atomic
 from .errors import ConfigError, DistillationError, DistillerError, SchemaError
 from .models import (
     MAX_PROJECT_LENGTH,
@@ -222,14 +222,6 @@ def _build_messages(session: NormalizedSession, report: NoiseReport) -> list[dic
     ]
 
 
-def _write_text_atomic(path: Path, text: str) -> Path:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(text, encoding="utf-8", newline="\n")
-    tmp.replace(path)
-    return path
-
-
 def _write_staging(
     session: NormalizedSession, report: NoiseReport, config: AppConfig
 ) -> tuple[Path, Path]:
@@ -272,7 +264,7 @@ def _write_staging(
             "",
         ]
     )
-    _write_text_atomic(request_path, body)
+    write_text_atomic(request_path, body)
     write_json_atomic(schema_path, note_json_schema())
     return request_path, schema_path
 

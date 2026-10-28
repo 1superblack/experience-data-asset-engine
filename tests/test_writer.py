@@ -787,3 +787,76 @@ def test_pending_candidate_contains_same_noise_section(config: AppConfig, today:
         assert line in body, f"pending 正文缺少: {line}"
 
 
+
+
+# --- 原子写入的故障注入（Gate 5b） -------------------------------------------
+#
+# 原子替换的承诺有两条：失败时目标文件字节不变、目录里不留临时文件。
+# 只测「成功路径不留 .edae-*」不够——真正会伤到用户的是失败路径上的残留。
+
+
+def _tmp_residue(directory: Path) -> list[str]:
+    """目录里所有看起来像临时文件的东西（``*.tmp`` 与旧实现的前缀）。
+
+    注意必须扫 ``*.tmp``：旧实现（``distill._write_text_atomic``）用的是固定
+    ``<name>.tmp``，它不匹配 ``.edae-*``；只按前缀扫会漏掉那一类残留。
+    """
+    return sorted(
+        path.name
+        for path in directory.iterdir()
+        if path.name.endswith(".tmp") or path.name.startswith(".edae-")
+    )
+
+
+def test_atomic_write_failure_during_write_leaves_no_temp_file(tmp_path: Path, monkeypatch):
+    """写入阶段失败（fsync 抛错）：目标字节不变，且不留 ``*.tmp``。"""
+    target = tmp_path / "note.md"
+    target.write_bytes(b"old-bytes\n")
+    before = target.read_bytes()
+
+    def boom(fd):  # noqa: ANN001
+        raise OSError("模拟 fsync 失败")
+
+    monkeypatch.setattr(writer.os, "fsync", boom)
+    with pytest.raises(OSError, match="模拟 fsync 失败"):
+        writer.write_text_atomic(target, "新内容\n")
+
+    assert target.read_bytes() == before, "写入阶段失败却改了目标文件"
+    assert _tmp_residue(tmp_path) == [], f"临时文件残留：{_tmp_residue(tmp_path)}"
+
+
+def test_atomic_write_failure_during_replace_leaves_no_temp_file(tmp_path: Path, monkeypatch):
+    """替换阶段失败（os.replace 抛错）：目标字节不变，且不留 ``*.tmp``。"""
+    target = tmp_path / "note.md"
+    target.write_bytes(b"old-bytes\n")
+    before = target.read_bytes()
+
+    def boom(src, dst):  # noqa: ANN001
+        raise OSError("模拟 replace 失败")
+
+    monkeypatch.setattr(writer.os, "replace", boom)
+    with pytest.raises(OSError, match="模拟 replace 失败"):
+        writer.write_text_atomic(target, "新内容\n")
+
+    assert target.read_bytes() == before, "替换阶段失败却改了目标文件"
+    assert _tmp_residue(tmp_path) == [], f"临时文件残留：{_tmp_residue(tmp_path)}"
+
+
+def test_atomic_write_creates_missing_parent_and_no_temp(tmp_path: Path):
+    """共享实现仍要负责建父目录（既有调用点依赖这个行为）。"""
+    target = tmp_path / "deep" / "nested" / "note.md"
+    writer.write_text_atomic(target, "内容\n")
+    assert target.read_text(encoding="utf-8") == "内容\n"
+    assert _tmp_residue(target.parent) == []
+
+
+def test_atomic_writers_are_the_shared_implementation():
+    """原子写入只允许有一份实现（config.py 里的那个）。
+
+    两份实现意味着两套失败清理逻辑，改动时必然漏一边——distill 的固定 ``.tmp``
+    就是这么漂出来的。所以这里直接钉对象同一性，而不是只比对行为。
+    """
+    from experience_data_asset_engine import config
+
+    assert writer.write_text_atomic is config.write_text_atomic
+    assert writer.write_json_atomic is config.write_json_atomic

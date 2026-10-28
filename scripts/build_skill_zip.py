@@ -17,6 +17,13 @@
      跨机承诺；对外发布的校验值应由 CI（固定 ubuntu + LF 检出）产出。
 3. **出厂前自检**：打包后回读 zip，只要检出被排除的路径、疑似凭据或个人绝对路径，
    就以非零码退出——宁可打不出包，也不发一个带隐私的包。
+   自检必须发生在**临时文件**上：先写 ``<output>.<随机>.tmp``，回读通过才
+   ``os.replace`` 到最终路径。失败时只删临时文件，最终路径（可能是一份旧的合法 zip）
+   一个字节都不动。否则「自检失败」的结果恰恰是磁盘上留着一个带凭据的 zip。
+4. **不收符号链接**：根级必需文件、``ROOT_DIRS`` 与递归子项全部检查符号链接
+   （含 Windows junction / reparse point），并用 ``resolve(strict=True)`` 确认真实路径
+   仍在仓库根内。命中即失败关闭——``references/leak.txt -> ~/.ssh/id_rsa`` 这种条目
+   一旦入包，等于把仓库外的文件直接发出去。
 
 用法::
 
@@ -29,8 +36,10 @@ from __future__ import annotations
 import argparse
 import fnmatch
 import hashlib
+import os
 import re
 import sys
+import tempfile
 import zipfile
 from pathlib import Path, PurePosixPath
 
@@ -123,6 +132,43 @@ class PackageError(RuntimeError):
     """打包自检失败（不能发布）。"""
 
 
+#: Windows 上重解析点（symlink / junction / mount point）共有的文件属性位。
+#: ``Path.is_symlink()`` 与 ``os.path.islink()`` 依赖 lstat 的 ``S_ISLNK``，
+#: 在部分版本上对 junction 不成立；这一位是唯一可靠的兜底。
+FILE_ATTRIBUTE_REPARSE_POINT = 0x0400
+
+
+def _is_link(path: Path) -> bool:
+    """是否为符号链接、junction 或其它重解析点（三重判定，任一命中即算）。"""
+    try:
+        if path.is_symlink() or os.path.islink(path):
+            return True
+        attributes = getattr(path.lstat(), "st_file_attributes", 0)
+    except OSError:
+        return False
+    return bool(attributes & FILE_ATTRIBUTE_REPARSE_POINT)
+
+
+def _assert_packable(repo_root: Path, path: Path, label: str) -> None:
+    """条目必须是仓库内的真实文件/目录：不是链接，且真实路径没逃出仓库根。
+
+    两道检查各管一件事：
+
+    - 链接：``references/leak.txt -> ~/.ssh/id_rsa`` 读起来和普通文件没区别，
+      光靠 ``is_file()`` 会把它原样打进包。
+    - 路径逃逸：即便不是链接（或链接被别的层解开），``resolve(strict=True)``
+      给出了真实位置，只要不在仓库根之内就拒绝——这是「读到的字节属于仓库」的最后一道保证。
+    """
+    if _is_link(path):
+        raise PackageError(f"拒绝打包符号链接条目：{label}（链接可能指向仓库之外）")
+    try:
+        real = path.resolve(strict=True)
+    except OSError as exc:
+        raise PackageError(f"无法解析条目真实路径：{label}（{exc}）") from exc
+    if not real.is_relative_to(repo_root):
+        raise PackageError(f"条目真实路径逃出仓库根目录：{label} -> {real}")
+
+
 def is_excluded(rel: PurePosixPath) -> bool:
     """判断相对路径是否应被排除（目录按名字或模式，文件按模式）。"""
     for part in rel.parts[:-1]:
@@ -136,27 +182,44 @@ def is_excluded(rel: PurePosixPath) -> bool:
 
 
 def collect_entries(repo_root: Path) -> list[PurePosixPath]:
-    """收集要入包的文件，按 posix 路径排序（保证跨平台顺序一致）。"""
+    """收集要入包的文件，按 posix 路径排序（保证跨平台顺序一致）。
+
+    每个入包前经过的条目（含根级必需文件、``ROOT_DIRS`` 本身与递归子项）都先过
+    :func:`_assert_packable`：符号链接一律失败关闭，不做「链接指向仓库内就放行」的
+    例外——那需要额外的真实路径比对，而且没有真实需求支撑。
+    """
+    root = Path(repo_root).resolve()
     entries: list[PurePosixPath] = []
     missing: list[str] = []
 
     for name in ROOT_FILES:
-        path = repo_root / name
+        path = root / name
+        if not path.exists() and not _is_link(path):
+            if name == "SKILL.md" or name in ("LICENSE", "README.md"):
+                # 这三个是 SkillHub 的必需项，缺了直接失败，不静默跳过。
+                missing.append(name)
+            continue
+        # 悬空链接也会走到这里：exists() 为 False 但 _is_link 为 True，照样失败关闭。
+        _assert_packable(root, path, name)
         if path.is_file():
             entries.append(PurePosixPath(name))
-        elif name == "SKILL.md" or name in ("LICENSE", "README.md"):
-            # 这三个是 SkillHub 的必需项，缺了直接失败，不静默跳过。
-            missing.append(name)
 
     for dirname in ROOT_DIRS:
-        base = repo_root / dirname
+        base = root / dirname
+        if not base.exists() and not _is_link(base):
+            missing.append(dirname + "/")
+            continue
+        # 目录本身也可能是链接（``references -> ../outside``），必须先拦。
+        _assert_packable(root, base, dirname + "/")
         if not base.is_dir():
             missing.append(dirname + "/")
             continue
         for path in base.rglob("*"):
+            label = path.relative_to(root).as_posix()
+            _assert_packable(root, path, label)
             if not path.is_file():
                 continue
-            rel = PurePosixPath(path.relative_to(repo_root).as_posix())
+            rel = PurePosixPath(label)
             if is_excluded(rel):
                 continue
             entries.append(rel)
@@ -184,7 +247,7 @@ def normalize_entry(rel: PurePosixPath, data: bytes) -> bytes:
 
 
 def write_zip(repo_root: Path, output: Path, entries: list[PurePosixPath]) -> None:
-    """按固定元信息写 zip，保证同源同哈希（文本行尾已归一）。"""
+    """按固定元信息把条目写进 ``output``（原子性由 :func:`build` 负责）。"""
     output.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(
         output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=COMPRESS_LEVEL
@@ -239,14 +302,40 @@ def build(
     *,
     verify: bool = True,
 ) -> tuple[Path, str, list[PurePosixPath]]:
-    """打包并（可选）自检，返回 (zip 路径, SHA256, 条目清单)。"""
-    entries = collect_entries(repo_root)
-    write_zip(repo_root, output, entries)
-    if verify:
-        problems = verify_zip(output)
-        if problems:
-            raise PackageError("打包自检未通过：\n" + "\n".join(f"  - {item}" for item in problems))
-    return output, sha256_of(output), entries
+    """打包并（可选）自检，返回 (zip 路径, SHA256, 条目清单)。
+
+    顺序是「写临时文件 -> 回读自检 -> 原子替换」，不是「写最终文件 -> 自检」。
+    差别在失败时的磁盘状态：前者什么都不留（旧的合法 zip 也不会被动），
+    后者会让一个带凭据的 zip 正好躺在最终路径上——而「自检失败」的消息
+    往往被刷过去，产物被人工上传出去。
+    """
+    root = Path(repo_root).resolve()
+    final = Path(output)
+    entries = collect_entries(root)
+
+    final.parent.mkdir(parents=True, exist_ok=True)
+    # mkstemp 已经保证名字唯一（前缀里带上目标名，便于失败后人工辨认）。
+    descriptor, tmp_name = tempfile.mkstemp(
+        dir=str(final.parent), prefix=f".{final.name}.", suffix=".tmp"
+    )
+    os.close(descriptor)
+    tmp_path = Path(tmp_name)
+    try:
+        write_zip(root, tmp_path, entries)
+        # mkstemp 建的是 0600；恢复「普通可读」的权限，否则换个用户跑发布步骤就读不到产物。
+        os.chmod(tmp_path, FIXED_FILE_MODE)
+        if verify:
+            problems = verify_zip(tmp_path)
+            if problems:
+                raise PackageError(
+                    "打包自检未通过（校验失败，未产出最终文件）：\n"
+                    + "\n".join(f"  - {item}" for item in problems)
+                )
+        os.replace(tmp_path, final)
+    except BaseException:
+        tmp_path.unlink(missing_ok=True)
+        raise
+    return final, sha256_of(final), entries
 
 
 def main(argv: list[str] | None = None) -> int:
