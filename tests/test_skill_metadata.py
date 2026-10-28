@@ -6,7 +6,10 @@
 
 from __future__ import annotations
 
+import os
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -241,13 +244,16 @@ def test_references_are_reachable_from_skill() -> None:
 # 这些措辞在历史上都出现过，但 src/ 里没有对应实现（审计已确认）：
 #   - `policy: {volatility: days}`：AppConfig 没有 policy 字段；
 #   - 写入时由 compute_review_after() 算 review_after：该函数零生产调用点；
-#   - 「检索笔记」：CLI 没有 search 子命令，只有 validate / status 的计数过滤；
-#   - quick_validate.py：本仓库不存在该文件。
+#   - 「检索笔记」：CLI 没有 search 子命令，只有 validate / status 的计数过滤。
+#
+# 注意：`scripts/quick_validate.py` **已经存在**（CI 每次都会跑它），所以它不属于
+# 「未实现的能力」。它曾经被错记成不存在，现在由
+# test_quick_validator_exists_and_runs / test_docs_do_not_deny_validator_exists
+# 锁住：前者证明它能跑，后者禁止文档再声称它不存在。
 FORBIDDEN_CLAIMS = {
     "config 覆盖复核周期": r"policy:\s*\{",
     "自动重算 review_after": r"review_after`? 由\s*`?compute_review_after",
     "不存在的检索子命令": r"检索笔记",
-    "不存在的校验脚本": r"quick_validate",
     "未发生的 CI 通过": r"CI\s*(已通过|校验通过)|GitHub Actions 已(通过|跑过)",
     "把已实现的打包写成未实现": r"SkillHub 打包发布|打包发布未做|打包发布能力属于",
 }
@@ -308,3 +314,58 @@ def test_readme_documents_packaging_limits() -> None:
     text = README_PATH.read_text(encoding="utf-8")
     assert re.search(r"跨机.*不保证同哈希", text), "README 必须写明跨机不保证同哈希"
     assert "build_skill_zip.py --output" in text, "打包命令必须是可执行形式"
+
+
+# --- 正向契约：本地预检入口是可执行事实 --------------------------------------
+#
+# `scripts/quick_validate.py` 真实存在，CI 每次都会跑它。这里只锁**可执行事实**
+# （文件在、能跑、退出码对、CI 直接调用），不锁文案：README 的措辞由文档作者在
+# 自己的 commit 里改，测试不做"文档必须提到某个字符串"的断言。
+#
+# 但方向必须反过来：文档不许再声称这个校验器不存在。历史上测试禁止提到
+# `quick_validate`，结果「本地能过」被误读成「平台能过」——那条禁词已经删掉，
+# 换成了这条反向断言。
+
+
+def test_quick_validator_exists_and_runs() -> None:
+    script = ROOT / "scripts" / "quick_validate.py"
+    assert script.is_file(), "本地预检入口必须是真实存在的文件"
+
+    ok = subprocess.run(
+        [sys.executable, str(script), str(ROOT)],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        env={**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"},
+        check=False,
+    )
+    assert ok.returncode == 0, ok.stdout + ok.stderr
+    assert "PASS" in ok.stdout
+
+    missing = subprocess.run(
+        [sys.executable, str(script), str(ROOT / "no-such-skill-dir")],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        env={**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"},
+        check=False,
+    )
+    assert missing.returncode == 2, missing.stdout + missing.stderr
+    assert "Traceback" not in missing.stdout + missing.stderr
+
+
+DENIAL_PATTERNS = (
+    r"不存在\s*`?scripts/quick_validate\.py",
+    r"本仓库不存在[^。\n]*quick_validate",
+    r"quick_validate[^。\n]{0,20}不存在",
+    r"没有\s*quick_validate",
+)
+
+
+@pytest.mark.parametrize("path", [README_PATH, SKILL_PATH], ids=lambda item: item.name)
+def test_docs_do_not_deny_validator_exists(path: Path) -> None:
+    text = path.read_text(encoding="utf-8")
+    hits = [pattern for pattern in DENIAL_PATTERNS if re.search(pattern, text)]
+    assert not hits, f"{path.name} 仍声称校验器不存在: {hits}"
