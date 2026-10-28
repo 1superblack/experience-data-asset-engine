@@ -2,12 +2,14 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
-## [0.1.0] - 2026-10-28
+## [1.0.0] - 2026-10-29
 
 首个可用版本：「导入 → 降噪 → 蒸馏 → 写入 → 校验 → 复核 → 卸载」主链路全部打通，
 全部通过 CLI 使用。**可离线打包**为可分发的 zip（根目录含 `SKILL.md`）。
 仓库**不内置自动发布流水线**（GitHub Releases / SkillHub 上架由发布窗口手工执行），
 发布状态以对应平台页面为准；`dist/` 是被 `.gitignore` 忽略的本机可重建立产物。
+
+> 版本说明：`v0.1.0` 是一次错误版本号的预发布记录，已由正式版本 `1.0.0` 取代。
 
 ### 发布定位与构建兼容（Gate 5e / 5f）
 
@@ -18,7 +20,7 @@
   取代关系管理经验生命周期。
 - **当前平台边界**：原生支持 Obsidian；输出为标准 Markdown + YAML frontmatter，
   暂未提供 Logseq、Notion、思源等知识库的官方直写适配。
-- **构建链修复**：SPDX `license = "MIT"` 要求 `setuptools>=77`，构建下限从 68 收紧；
+- **构建链修复**：SPDX `license` 元数据要求 `setuptools>=77`，构建下限从 68 收紧；
   Windows CLI 入口固定 stdout/stderr 为 UTF-8，并补构建元数据与 Windows 编码回归测试。
 - **静态门禁**：dev 依赖增加 `ruff`，CI 执行 `ruff check --select F,E9`，拦住未定义名称、
   语法错误和未使用导入。
@@ -91,8 +93,8 @@
 
 - **元数据统一**：`SKILL.md` 的 `metadata.displayName` 由「数据资产引擎」改为
   「数据资产引擎｜经验资产化」，与 `agents/openai.yaml` 的 `interface.display_name` 一致；
-  `name` / `metadata.slug` 为 `experience-data-asset-engine`，`metadata.version` 为 `0.1.0`，
-  `license` 为 MIT。
+  `name` / `metadata.slug` 为 `experience-data-asset-engine`，`metadata.version` 为 `1.0.0`；
+  最终 `license` 为 `AGPL-3.0-only`。
 - **`SKILL.md` 收敛为五节**：触发条件 / 主流程 / 安全边界 / CLI 入口 / Reference 路由；
   能力边界表保留「打包发布（SkillHub / GitHub）未实现」，不夸大能力。
 - **`README.md` 重写**：补 2 分钟快速开始、Codex `.jsonl` / `.jsonl.zst` 与 Markdown 手动导入

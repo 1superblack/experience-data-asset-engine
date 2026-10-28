@@ -23,7 +23,7 @@ REFERENCE_PATHS = sorted((ROOT / "references").glob("*.md"))
 
 EXPECTED_SLUG = "experience-data-asset-engine"
 EXPECTED_DISPLAY_NAME = "数据资产引擎｜经验资产化"
-EXPECTED_VERSION = "0.1.0"
+EXPECTED_VERSION = "1.0.0"
 EXPECTED_LICENSE = "AGPL-3.0-only"
 EXPECTED_SUMMARY = "让每一次 AI 对话，都沉淀成下次还能复用的经验资产"
 EXPECTED_SUBHEADLINE = "保留决策依据、失败路径与失效边界，让经验可追溯、可复核、可长期复用"
@@ -182,7 +182,7 @@ def test_openai_yaml_short_description_matches_positioning() -> None:
         "## 隐私",
         "## 卸载",
         "## 为什么不是另一个聊天归档或 AI 记忆工具",
-        "当前版本原生支持 Obsidian",
+            "当前原生写入 Obsidian",
     ],
 )
 def test_readme_covers_required_topic(needle: str) -> None:

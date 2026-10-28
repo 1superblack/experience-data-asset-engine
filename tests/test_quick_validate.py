@@ -43,7 +43,7 @@ license: MIT
 metadata:
   slug: experience-data-asset-engine
   displayName: 数据资产引擎｜经验资产化
-  version: 0.1.0
+  version: 1.0.0
   summary: 把对话与项目过程蒸馏成可复用、可追溯的经验资产笔记
 ---
 
@@ -82,7 +82,7 @@ def test_repository_passes() -> None:
     problems, summary = quick_validate.validate(ROOT)
     assert problems == []
     assert summary["name"] == "experience-data-asset-engine"
-    assert summary["version"] == "0.1.0"
+    assert summary["version"] == "1.0.0"
 
 
 def test_extracted_package_passes(tmp_path: Path) -> None:
@@ -222,7 +222,7 @@ license: MIT
 metadata:
   slug: experience-data-asset-engine
   displayName: 数据资产引擎｜经验资产化
-  version: 0.1.0
+  version: 1.0.0
 """
 
 
@@ -269,7 +269,7 @@ def test_duplicate_top_level_key_is_rejected(tmp_path: Path) -> None:
 
 
 def test_duplicate_nested_key_is_rejected(tmp_path: Path) -> None:
-    frontmatter = BASELINE_FRONTMATTER + "  version: 0.1.0\n"
+    frontmatter = BASELINE_FRONTMATTER + "  version: 1.0.0\n"
     directory = make_skill(tmp_path / "s", frontmatter_text(frontmatter))
     with pytest.raises(quick_validate.FrontmatterError) as excinfo:
         quick_validate.validate(directory)
@@ -291,7 +291,7 @@ def test_inconsistent_indent_is_rejected(tmp_path: Path, indent: int) -> None:
 
 
 def test_mixed_indent_in_same_level_is_rejected(tmp_path: Path) -> None:
-    frontmatter = BASELINE_FRONTMATTER.replace("  version: 0.1.0\n", "    version: 0.1.0\n")
+    frontmatter = BASELINE_FRONTMATTER.replace("  version: 1.0.0\n", "    version: 1.0.0\n")
     directory = make_skill(tmp_path / "s", frontmatter_text(frontmatter))
     with pytest.raises(quick_validate.FrontmatterError) as excinfo:
         quick_validate.validate(directory)

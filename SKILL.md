@@ -5,7 +5,7 @@ license: AGPL-3.0-only
 metadata:
   slug: experience-data-asset-engine
   displayName: 数据资产引擎｜经验资产化
-  version: 0.1.0
+  version: 1.0.0
   summary: 让每一次 AI 对话，都沉淀成下次还能复用的经验资产
 ---
 
@@ -50,7 +50,7 @@ Obsidian 经验资产：冲突只生成待合并候选，状态不会自动判�
 6. `recheck --note <path> --status <状态>`：只原子改 frontmatter 的「状态」一行。
 7. `uninstall --yes`：只删 `<vault>/.experience-data-asset-engine/`，绝不删 Markdown。
 
-当前能力边界（`0.1.0`）——下表是事实，不要外推：
+当前能力边界（`1.0.0`）——下表是事实，不要外推：
 
 | 能力 | 入口 | 状态 |
 |---|---|---|

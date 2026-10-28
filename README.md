@@ -14,7 +14,7 @@
 > 第一次探索是成本，第二次复用才是资产。
 
 - Skill slug：`experience-data-asset-engine`
-- 版本：`0.1.0`
+- 版本：`1.0.0`
 - 许可：AGPL-3.0-only，提供独立商业授权
 
 ## 为什么不是另一个聊天归档或 AI 记忆工具
@@ -36,7 +36,7 @@
 因此它更适合已经完成过一次高成本探索、准备把结果转成长期资产的用户；不适合只想自动保存
 聊天或需要实时记忆注入的场景。
 
-当前版本原生支持 Obsidian，输出为标准 Markdown + YAML frontmatter，便于迁移。暂未提供
+当前原生写入 Obsidian。输出为标准 Markdown + YAML frontmatter，便于迁移；暂未提供
 Logseq、Notion、思源等知识库的官方直写适配。
 
 ## 四条设计原则
@@ -237,7 +237,7 @@ note = prepare_distillation(session, load_config())    # 无模型时抛 Distill
 
 ## 当前版本范围
 
-`0.1.0` 已打通「导入 → 降噪 → 蒸馏 → 写入 → 校验 → 复核 → 卸载」这条主链路：
+`1.0.0` 已打通「导入 → 降噪 → 蒸馏 → 写入 → 校验 → 复核 → 卸载」这条主链路：
 
 - **输入**：Codex `.jsonl` / `.jsonl.zst`、标准化会话 `.json`、手写 `.md`。
 - **处理**：四层降噪与脱敏、模型无关蒸馏、无模型时只产出 staging。

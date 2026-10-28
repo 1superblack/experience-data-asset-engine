@@ -22,11 +22,11 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_version(capsys):
     assert main(["--version"]) == 0
-    assert "0.1.0" in capsys.readouterr().out
+    assert "1.0.0" in capsys.readouterr().out
 
 
 def test_package_version_matches_release():
-    assert __version__ == "0.1.0"
+    assert __version__ == "1.0.0"
 
 
 def test_no_command_prints_help_and_asks_for_input(capsys):
@@ -151,7 +151,7 @@ def test_scripts_entrypoint_runs_from_repo_root():
         errors="replace",
     )
     assert result.returncode == EXIT_OK, result.stderr
-    assert "0.1.0" in result.stdout
+    assert "1.0.0" in result.stdout
 
 
 def test_module_entrypoint_runs():
@@ -166,7 +166,7 @@ def test_module_entrypoint_runs():
         env=env,
     )
     assert result.returncode == EXIT_OK, result.stderr
-    assert "0.1.0" in result.stdout
+    assert "1.0.0" in result.stdout
 
 
 def test_module_main_guard_exits_with_code(monkeypatch, capsys):
@@ -174,4 +174,4 @@ def test_module_main_guard_exits_with_code(monkeypatch, capsys):
     with pytest.raises(SystemExit) as exc:
         runpy.run_module("experience_data_asset_engine", run_name="__main__")
     assert exc.value.code == EXIT_OK
-    assert "0.1.0" in capsys.readouterr().out
+    assert "1.0.0" in capsys.readouterr().out

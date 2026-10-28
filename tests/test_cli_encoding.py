@@ -72,4 +72,4 @@ def test_version_output_is_ascii_safe(tmp_path: Path) -> None:
         check=False,
     )
     assert proc.returncode == 0, proc.stderr
-    assert proc.stdout.strip() == "experience-data-asset-engine 0.1.0"
+    assert proc.stdout.strip() == "experience-data-asset-engine 1.0.0"
