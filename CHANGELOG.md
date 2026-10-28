@@ -25,7 +25,7 @@
 - **UTF-8 子进程护栏加严**：不再只看「有没有传 env」，而是确认 env 里真有
   `PYTHONUTF8=1` 与 `PYTHONIOENCODING=utf-8`，并覆盖两个测试文件。
 - **文档口径**：`SKILL.md` 的 `summary` 放在 `metadata.summary`（顶层只允许官方白名单的五个键）；
-  README 说明本地校验器只是子集预检、不等同平台审核；「仓库内没有发布产物」改为
+  README 说明本地校验器只是子集预检、不等同平台审核；发布口径改为
   「未正式发布，`dist/` 是被 gitignore 的本机可重建立产物」。
 
 ### 兼容性收口（Gate 5c）
@@ -97,7 +97,7 @@
   - `CHANGELOG` 早期误称 `quick_validate.py` 不在本仓库（历史记录，现已自带
     `scripts/quick_validate.py`），相应表述改为描述校验器的键约束。
 - **拆开「打包」与「上架」两种能力**（B 的 `scripts/build_skill_zip.py` 落地后，
-  「仓库内没有发布产物」这句话已不成立）：
+  早期那句「没有发布产物」的笼统说法已被推翻）：
   - `打包`：本地 `python scripts/build_skill_zip.py --output dist/<name>.zip` 已可用，
     根目录直挂 `SKILL.md`、条目排序与时间戳固定、打包后回读自检，检出凭据或个人路径即非零退出。
     同机同源两次打包 zip 字节一致，**跨机不保证同哈希**（deflate 输出取决于 zlib 版本），
