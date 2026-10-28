@@ -323,7 +323,18 @@ def test_planted_credential_fails_closed(tmp_path: Path) -> None:
 UTF8_ENV_REQUIRED = {"PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
 
 #: 断言护栏要扫的文件：凡是测试里真的起子进程的都算上。
-GUARDED_TEST_FILES = ("test_package.py", "test_quick_validate.py", "test_skill_metadata.py")
+GUARDED_TEST_FILES = (
+    "test_package.py",
+    "test_quick_validate.py",
+    "test_skill_metadata.py",
+    "test_cli_encoding.py",
+)
+
+#: 允许「故意清空 UTF-8 变量」的 env 构造器。
+#: 只有 Windows 编码回归测试需要这种反向场景：它要验证的正是「用户没设变量时」
+#: CLI 的输出是否仍然可读。名字写死在这里，避免有人随手起个函数名就绕过护栏；
+#: 下面的 test_utf8_guard_exemption_is_real 还会检查该函数真的删了两个变量。
+CLEAN_ENV_HELPER = "_env_without_utf8"
 
 
 def _env_keyword_problem(node: ast.Call) -> list[str]:
@@ -340,7 +351,7 @@ def _env_keyword_problem(node: ast.Call) -> list[str]:
         name = value.func.attr if isinstance(value.func, ast.Attribute) else getattr(
             value.func, "id", ""
         )
-        if name == "utf8_env":
+        if name in {"utf8_env", CLEAN_ENV_HELPER}:
             return []
         return [f"env= 调用的不是 utf8_env()，而是 {ast.unparse(value)}"]
     if isinstance(value, ast.Dict):
@@ -605,3 +616,13 @@ def test_output_under_a_file_fails_cleanly(tmp_path: Path) -> None:
     )
     assert residue == [], f"失败后留下产物/临时文件：{residue}"
     assert blocker.read_text(encoding="utf-8") == "not a directory\n"
+
+
+def test_utf8_guard_exemption_is_real() -> None:
+    """``_env_without_utf8`` 这个豁免必须名副其实：真的删掉两个变量。
+
+    否则「允许清空」会变成「允许随便传 env」，护栏就白做了。
+    """
+    source = (Path(__file__).resolve().parent / "test_cli_encoding.py").read_text(encoding="utf-8")
+    assert 'env.pop("PYTHONUTF8", None)' in source
+    assert 'env.pop("PYTHONIOENCODING", None)' in source

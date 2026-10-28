@@ -444,8 +444,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             if reconfigure is not None:
                 try:
                     reconfigure(encoding="utf-8", errors="replace")
-                except Exception:
-                    # stdout 被替换（如 pytest capsys）时不阻塞主流程
+                except (OSError, ValueError):
+                    # stdout 已被关闭或替换成非 TextIOWrapper（如 pytest capsys）：
+                    # 编码设置失败不该阻塞主流程，但其它异常必须冒出来。
                     pass
 
     parser = build_parser()
