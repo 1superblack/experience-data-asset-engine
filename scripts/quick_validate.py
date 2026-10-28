@@ -63,8 +63,13 @@ NESTED_INDENT = 2
 HYPHEN_CASE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
 
+#: 顶层只允许这五个键——与 Codex 官方校验器的白名单一致。
+#: 官方实现写死为 ``allowed-tools, description, license, metadata, name``；
+#: 任何多出来的键（例如把 ``summary`` 放在顶层）都会被判失败，这里提前拦住。
+ALLOWED_TOP_KEYS = ("name", "description", "license", "allowed-tools", "metadata")
+
 REQUIRED_TOP_KEYS = ("name", "description", "license")
-REQUIRED_METADATA_KEYS = ("slug", "displayName", "version")
+REQUIRED_METADATA_KEYS = ("slug", "displayName", "version", "summary")
 
 USAGE = """usage: quick_validate.py [SKILL_DIR]
 
@@ -72,8 +77,12 @@ Validate the YAML frontmatter of SKILL.md inside SKILL_DIR (default: cwd).
 
 exit codes:
   0  metadata is valid
-  1  metadata is invalid (readable file, bad frontmatter / YAML subset / fields)
-  2  SKILL.md cannot be read (missing, not a file, no permission, not UTF-8)
+  1  metadata is invalid (file is readable, but bytes are not UTF-8, or the
+     frontmatter / YAML subset / field rules do not hold)
+  2  SKILL.md cannot be read (missing, not a file, no permission, I/O failure)
+
+top-level keys are limited to: name, description, license, allowed-tools, metadata.
+any other top-level key is rejected (Codex rejects unknown keys).
 
 output is pure ASCII: dynamic values are escaped as \\uXXXX.
 """
@@ -184,8 +193,10 @@ def _clean(value: str) -> str:
 def validate(skill_dir: Path) -> tuple[list[str], dict[str, str]]:
     """返回 (问题列表, 关键字段摘要)。问题为空即通过。
 
-    读取阶段的失败（不存在、无权限、解码失败）原样抛出，由 :func:`main` 映射成
-    退出码 ``2``；内容阶段的失败会变成问题列表，由 :func:`main` 映射成 ``1``。
+    只有「取不到文件」才会抛异常（不存在 → ``FileNotFoundError``，无权限 / I/O →
+    ``PermissionError`` / ``OSError``），由 :func:`main` 映射成退出码 ``2``。
+    文件读到了、但字节不是 UTF-8（``UnicodeDecodeError``）属于内容问题，同样是
+    异常，但由 :func:`main` 映射成 ``1``；其余内容问题变成问题列表，也映射成 ``1``。
     """
     skill_md = skill_dir / "SKILL.md"
     if not skill_md.is_file():
@@ -196,6 +207,16 @@ def validate(skill_dir: Path) -> tuple[list[str], dict[str, str]]:
     data = parse_frontmatter(block)
 
     problems: list[str] = []
+
+    unknown = sorted(key for key in data if key not in ALLOWED_TOP_KEYS)
+    if unknown:
+        problems.append(
+            "unknown top-level key(s): "
+            + ", ".join(repr(key) for key in unknown)
+            + " (allowed: "
+            + ", ".join(ALLOWED_TOP_KEYS)
+            + ")"
+        )
 
     for key in REQUIRED_TOP_KEYS:
         if not str(data.get(key, "")).strip():
@@ -255,6 +276,7 @@ def validate(skill_dir: Path) -> tuple[list[str], dict[str, str]]:
         "displayName": display_name,
         "version": version,
         "license": str(data.get("license", "")).strip(),
+        "summary": str(metadata.get("summary", "")).strip(),
         "description_length": str(len(description)),
     }
     return problems, summary

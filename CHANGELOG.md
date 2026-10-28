@@ -6,7 +6,8 @@
 
 首个可用版本：「导入 → 降噪 → 蒸馏 → 写入 → 校验 → 复核 → 卸载」主链路全部打通，
 全部通过 CLI 使用。**可离线打包**为可分发的 zip（根目录含 `SKILL.md`）；
-**不含上架能力**（SkillHub 上架、GitHub Release 流水线未实现，仓库内没有发布产物）。
+**不含上架能力**（SkillHub 上架、GitHub Release 流水线未实现，尚未正式发布；
+`dist/` 是被 `.gitignore` 忽略的本机可重建立产物）。
 
 ### 发布安全与校验器契约（Gate 5b）
 
@@ -23,8 +24,20 @@
   退出码边界明确（取不到文件 2 / 内容不成立含编码非法 1）。
 - **UTF-8 子进程护栏加严**：不再只看「有没有传 env」，而是确认 env 里真有
   `PYTHONUTF8=1` 与 `PYTHONIOENCODING=utf-8`，并覆盖两个测试文件。
-- **文档口径**：`SKILL.md` 增加顶层 `summary`；README 说明本地校验器只是子集预检、
-  不等同平台审核；「仓库内没有发布产物」改为「未正式发布，`dist/` 是可重建的本地产物」。
+- **文档口径**：`SKILL.md` 的 `summary` 放在 `metadata.summary`（顶层只允许官方白名单的五个键）；
+  README 说明本地校验器只是子集预检、不等同平台审核；「仓库内没有发布产物」改为
+  「未正式发布，`dist/` 是被 gitignore 的本机可重建立产物」。
+
+### 兼容性收口（Gate 5c）
+
+- **Codex 兼容**：`SKILL.md` 的 `summary` 从顶层移到 `metadata.summary`——官方校验器只接受
+  `allowed-tools` / `description` / `license` / `metadata` / `name` 五个顶层键，
+  顶层多一个 `summary` 就会 `Unexpected key(s)` 失败。
+- **本地校验器对齐**：新增 `ALLOWED_TOP_KEYS` 白名单，未知顶层键直接失败并列出字段名；
+  `metadata.summary` 纳入必填。
+- **打包自检不可关闭**：删除 `build(verify=...)` 参数，自检恒执行；`main()` 对
+  `OSError` / `FileExistsError` / `BadZipFile` 给结论不打 traceback。
+- **护栏覆盖**：UTF-8 子进程护栏把 `tests/test_skill_metadata.py` 纳入扫描范围。
 
 ### 发布准备收口（Gate 5 复审）
 
@@ -81,7 +94,8 @@
   - `SKILL.md` description 原写「按状态过滤…检索笔记」，但 CLI 没有搜索子命令，
     改为「在校验、统计时默认排除已过时与已被取代的笔记」；README 同步注明检索由
     Obsidian 查询或 `iter_notes()` 完成。
-  - `CHANGELOG` 原引用的 `quick_validate.py` 不在本仓库，改为描述校验器的键约束。
+  - `CHANGELOG` 早期误称 `quick_validate.py` 不在本仓库（历史记录，现已自带
+    `scripts/quick_validate.py`），相应表述改为描述校验器的键约束。
 - **拆开「打包」与「上架」两种能力**（B 的 `scripts/build_skill_zip.py` 落地后，
   「仓库内没有发布产物」这句话已不成立）：
   - `打包`：本地 `python scripts/build_skill_zip.py --output dist/<name>.zip` 已可用，
@@ -268,12 +282,12 @@
 ### 已知限制
 
 - **上架/发版未做**：`scripts/build_skill_zip.py` 能离线打 zip，但 SkillHub 上架与
-  GitHub Release 流水线没有实现，仓库内没有发布产物。
+  GitHub Release 流水线没有实现，尚未正式发布；`dist/` 是被 `.gitignore` 忽略的本机可重建立产物。
 - **Markdown 导入只支持一种版式**：`# 标题` + `## 角色`。自由格式的导出文本需要先整理成
   这个形状，否则会以「无法识别的角色标题」失败关闭（这是有意的，不做猜测式解析）。
 - **pending 候选需要人工合并**：写入冲突时只落可合并的 Markdown 候选，不会自动替换或删除原笔记。
 - 语义级冲突（「这个结论后来被推翻了」）不在降噪层判断，留给蒸馏阶段；
   口径见 `references/noise-policy.md`。
-- Skill 元数据校验器只接受 `name` / `description` / `license` / `allowed-tools` / `metadata`
-  五个顶层键（该脚本由 Skill 运行时提供，不在本仓库内），因此 `slug`、`displayName`、
-  `version` 放在 `metadata` 下。
+- Skill 元数据校验器（官方运行时的那个）只接受 `name` / `description` / `license` /
+  `allowed-tools` / `metadata` 五个顶层键，因此 `slug`、`displayName`、`version`、`summary`
+  都放在 `metadata` 下。本仓库自带的 `scripts/quick_validate.py` 复刻了同一套白名单。

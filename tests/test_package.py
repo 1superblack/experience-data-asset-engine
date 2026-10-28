@@ -322,8 +322,8 @@ def test_planted_credential_fails_closed(tmp_path: Path) -> None:
 #: 子进程必须看到的两个环境变量。缺任一个，Windows 中文机器上就会按 GBK 写 stderr。
 UTF8_ENV_REQUIRED = {"PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
 
-#: 断言护栏要扫的文件：本文件与 quick_validate 的测试（它同样真的起子进程）。
-GUARDED_TEST_FILES = ("test_package.py", "test_quick_validate.py")
+#: 断言护栏要扫的文件：凡是测试里真的起子进程的都算上。
+GUARDED_TEST_FILES = ("test_package.py", "test_quick_validate.py", "test_skill_metadata.py")
 
 
 def _env_keyword_problem(node: ast.Call) -> list[str]:
@@ -567,3 +567,42 @@ def test_symlink_disguised_as_markdown_is_rejected(tmp_path: Path) -> None:
     assert proc.returncode != 0
     assert "notes.md" in proc.stderr, proc.stderr
     assert not out.exists()
+
+
+# --- 自检不可绕过 + 预期错误不打 traceback（Gate 5c） ------------------------
+
+
+def test_build_has_no_verify_bypass() -> None:
+    """``build()`` 不允许有跳过自检的参数。
+
+    一个 ``verify=False`` 开关，迟早会被某个调用方用来「先跑通再说」，
+    而它跳过的正是发布前唯一还会拦一次的隐私/凭据检查。
+    """
+    import inspect
+
+    module = _load_build_script_module()
+    parameters = inspect.signature(module.build).parameters
+    assert "verify" not in parameters, f"build() 仍可关闭自检：{sorted(parameters)}"
+
+
+def test_output_under_a_file_fails_cleanly(tmp_path: Path) -> None:
+    """父路径是文件时：退出码 1、无 traceback、不留最终产物与临时文件。"""
+    repo = _make_synthetic_repo(tmp_path / "repo")
+    blocker = tmp_path / "blocker.md"
+    blocker.write_text("not a directory\n", encoding="utf-8")
+    out = blocker / "out.zip"
+
+    proc = run_build(out, cwd=tmp_path, repo=repo)
+
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    combined = proc.stdout + proc.stderr
+    assert "Traceback" not in combined, combined
+    assert not out.exists()
+    residue = sorted(
+        item.name
+        for item in tmp_path.iterdir()
+        if item.suffix == ".zip" or item.name.endswith(".tmp")
+    )
+    assert residue == [], f"失败后留下产物/临时文件：{residue}"
+    assert blocker.read_text(encoding="utf-8") == "not a directory\n"
+

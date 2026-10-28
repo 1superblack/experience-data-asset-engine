@@ -44,6 +44,7 @@ metadata:
   slug: experience-data-asset-engine
   displayName: 数据资产引擎｜经验资产化
   version: 0.1.0
+  summary: 把对话与项目过程蒸馏成可复用、可追溯的经验资产笔记
 ---
 
 # 正文
@@ -441,3 +442,108 @@ def test_ci_calls_validator_and_does_not_skip() -> None:
     )
     assert "::warning::" not in text, "校验入口缺失时必须让 job 失败，不能 warning 后跳过"
     assert "scripts/validate_skill.py" not in text, "不要保留多入口探测分支"
+
+
+# --- Codex 兼容：顶层键白名单（Gate 5c） -------------------------------------
+
+
+def test_top_level_summary_is_rejected(tmp_path: Path) -> None:
+    """``summary`` 必须放 metadata 里：Codex 官方校验器只认五个顶层键。"""
+    text = GOOD.replace(
+        "  summary: 把对话与项目过程蒸馏成可复用、可追溯的经验资产笔记\n", ""
+    ).replace(
+        "license: MIT\n",
+        "license: MIT\nsummary: 放错位置了\n",
+    )
+    directory = make_skill(tmp_path / "s", text)
+    problems, _ = quick_validate.validate(directory)
+    assert any("unknown top-level key" in item and "summary" in item for item in problems), problems
+
+
+def test_unknown_top_level_field_is_rejected(tmp_path: Path) -> None:
+    directory = make_skill(
+        tmp_path / "s", GOOD.replace("license: MIT\n", "license: MIT\nfoo-bar: x\n")
+    )
+    problems, _ = quick_validate.validate(directory)
+    assert any("unknown top-level key" in item and "foo-bar" in item for item in problems), problems
+
+
+def test_metadata_summary_is_required(tmp_path: Path) -> None:
+    directory = make_skill(
+        tmp_path / "s",
+        GOOD.replace("  summary: 把对话与项目过程蒸馏成可复用、可追溯的经验资产笔记\n", ""),
+    )
+    problems, _ = quick_validate.validate(directory)
+    assert "metadata.summary: required but missing or empty" in problems, problems
+
+
+def test_allowed_top_keys_matches_codex_whitelist() -> None:
+    """白名单必须与官方一致，否则本地过了官方仍会拒。"""
+    assert set(quick_validate.ALLOWED_TOP_KEYS) == {
+        "name",
+        "description",
+        "license",
+        "allowed-tools",
+        "metadata",
+    }
+
+
+def test_repository_and_package_still_pass() -> None:
+    """改白名单不能把本仓库自己的 SKILL.md 判红。"""
+    problems, summary = quick_validate.validate(ROOT)
+    assert problems == [], problems
+    assert summary["summary"].strip() != ""
+
+
+# --- 退出码说明三处一致（Gate 5c） ------------------------------------------
+
+
+def _usage_blocks() -> dict[str, str]:
+    """把 USAGE 里 ``0/1/2`` 三段描述切出来。"""
+    lines = quick_validate.USAGE.splitlines()
+    blocks: dict[str, list[str]] = {}
+    current: str | None = None
+    for line in lines:
+        stripped = line.strip()
+        if stripped[:1] in {"0", "1", "2"} and stripped[1:3] == "  ":
+            current = stripped[0]
+            blocks[current] = [stripped]
+            continue
+        if current is None:
+            continue
+        if not line.startswith(" "):
+            current = None
+            continue
+        blocks[current].append(stripped)
+    return {code: " ".join(parts) for code, parts in blocks.items()}
+
+
+def test_usage_exit_two_does_not_claim_encoding() -> None:
+    """退出码 2 只讲「取不到文件」，绝不能把编码问题塞进来。"""
+    blocks = _usage_blocks()
+    assert set(blocks) == {"0", "1", "2"}, blocks
+    assert "UTF-8" not in blocks["2"], blocks["2"]
+    assert "cannot be read" in blocks["2"], blocks["2"]
+
+
+def test_usage_exit_one_covers_encoding() -> None:
+    blocks = _usage_blocks()
+    assert "UTF-8" in blocks["1"], blocks["1"]
+
+
+def test_module_and_validate_docstrings_agree_on_boundary() -> None:
+    """模块 docstring 与 validate() docstring 不能各说一套。"""
+    module_doc = quick_validate.__doc__ or ""
+    validate_doc = quick_validate.validate.__doc__ or ""
+    assert "非 UTF-8" in module_doc
+    assert "取不到文件" in module_doc
+    assert module_doc.index("取不到文件") < module_doc.index("非 UTF-8")
+    assert "UnicodeDecodeError" in validate_doc
+    assert "``1``" in validate_doc or "1" in validate_doc
+
+
+def test_help_output_matches_usage(capsys: pytest.CaptureFixture[str]) -> None:
+    assert quick_validate.main(["--help"]) == 0
+    captured = capsys.readouterr()
+    assert captured.out == quick_validate.USAGE, "``--help`` 必须原样输出 USAGE"
+    assert captured.out.isascii(), "帮助文本必须是纯 ASCII"

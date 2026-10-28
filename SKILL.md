@@ -1,12 +1,12 @@
 ---
 name: experience-data-asset-engine
 description: 把 AI 对话与项目过程转化为可复用、可追溯、可治理的经验数据资产，产出带时间与状态管理的 Obsidian 知识笔记。当用户要求归档对话、沉淀项目经验、整理会话记录、生成可复用经验笔记，或在校验、统计时默认排除已过时与已被取代的笔记时使用。默认不写入对话原文，不删除、不覆盖用户已有笔记。
-summary: 把对话与项目过程蒸馏成可复用、可追溯的经验资产笔记
 license: MIT
 metadata:
   slug: experience-data-asset-engine
   displayName: 数据资产引擎｜经验资产化
   version: 0.1.0
+  summary: 把对话与项目过程蒸馏成可复用、可追溯的经验资产笔记
 ---
 
 # 数据资产引擎｜经验资产化

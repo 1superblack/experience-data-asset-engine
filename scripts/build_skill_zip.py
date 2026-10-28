@@ -299,15 +299,17 @@ def sha256_of(path: Path) -> str:
 def build(
     repo_root: Path,
     output: Path,
-    *,
-    verify: bool = True,
 ) -> tuple[Path, str, list[PurePosixPath]]:
-    """打包并（可选）自检，返回 (zip 路径, SHA256, 条目清单)。
+    """打包并自检，返回 (zip 路径, SHA256, 条目清单)。
 
     顺序是「写临时文件 -> 回读自检 -> 原子替换」，不是「写最终文件 -> 自检」。
     差别在失败时的磁盘状态：前者什么都不留（旧的合法 zip 也不会被动），
     后者会让一个带凭据的 zip 正好躺在最终路径上——而「自检失败」的消息
     往往被刷过去，产物被人工上传出去。
+
+    **自检不可关闭**：这里刻意没有 ``verify`` 开关。一个能跳过隐私/凭据检查的
+    布尔参数，迟早会被某个调用方传 ``False`` 来「先跑通再说」，而它跳过的正是
+    发布前唯一还会拦一次的东西。
     """
     root = Path(repo_root).resolve()
     final = Path(output)
@@ -324,13 +326,12 @@ def build(
         write_zip(root, tmp_path, entries)
         # mkstemp 建的是 0600；恢复「普通可读」的权限，否则换个用户跑发布步骤就读不到产物。
         os.chmod(tmp_path, FIXED_FILE_MODE)
-        if verify:
-            problems = verify_zip(tmp_path)
-            if problems:
-                raise PackageError(
-                    "打包自检未通过（校验失败，未产出最终文件）：\n"
-                    + "\n".join(f"  - {item}" for item in problems)
-                )
+        problems = verify_zip(tmp_path)
+        if problems:
+            raise PackageError(
+                "打包自检未通过（校验失败，未产出最终文件）：\n"
+                + "\n".join(f"  - {item}" for item in problems)
+            )
         os.replace(tmp_path, final)
     except BaseException:
         tmp_path.unlink(missing_ok=True)
@@ -361,6 +362,12 @@ def main(argv: list[str] | None = None) -> int:
     try:
         archive_path, digest, entries = build(repo_root, output)
     except PackageError as exc:
+        # 自检失败是可预期的业务结果，不是程序崩溃：只给结论，不打 traceback。
+        print(f"[build_skill_zip] 失败：{exc}", file=sys.stderr)
+        return 1
+    except (OSError, FileExistsError, zipfile.BadZipFile) as exc:
+        # 预期内的环境/输入问题：父路径是文件、目录只读、目标被占用、zip 损坏。
+        # 同样不打 traceback——调用方（CI、发布脚本）需要的是可读结论与退出码。
         print(f"[build_skill_zip] 失败：{exc}", file=sys.stderr)
         return 1
 

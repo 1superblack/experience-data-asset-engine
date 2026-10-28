@@ -376,4 +376,7 @@ def test_docs_introduce_quick_validator() -> None:
     text = README_PATH.read_text(encoding="utf-8")
     assert "scripts/quick_validate.py" in text, "README 必须给出本地校验入口"
     assert "不等同平台审核" in text, "必须说明本地校验不等于平台审核"
-    assert "skillhub publish --dry-run" in text, "必须指向官方 dry-run 作为真实兼容依据"
+    assert re.search(r"skillhub publish\b.*--dry-run", text), "必须提到官方 dry-run"
+    assert "字段最低兼容" in text or "不校验完整文件清单" in text, (
+        "不能把 dry-run 写成完整平台兼容背书"
+    )

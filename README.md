@@ -37,9 +37,12 @@ python -m pip install -e ".[dev,codex]"
   `sys.path`）。
 - 装好后多一个控制台入口 `experience-data-asset-engine`。
 - 本地元数据预检：`python scripts/quick_validate.py .`，检查 `SKILL.md` 的
-  frontmatter、`name`、`description` 长度、`metadata.slug/displayName/version`。
-  它只是 **Agent Skill 的子集预检**，**不等同平台审核**；真实平台兼容性以官方
-  `skillhub publish --dry-run` 为准。
+  frontmatter、`name`、`description` 长度、`metadata.slug/displayName/version/summary`，
+  以及顶层键是否只用了官方白名单里的五个。
+  它只是 **Agent Skill 的子集预检**，**不等同平台审核**。
+- 官方 dry-run：`skillhub publish <zip> --dry-run` 只能证明 slug / version / displayName
+  这类**字段最低兼容**，它**不校验完整文件清单、不上传、不调用服务端审核**——
+  所以它通过也不等于能上架。
 - 如果拿到的是分发压缩包（只有 `scripts/`、`src/`、`references/`、`agents/` 与几个根级
   Markdown），**不需要也不要执行 pip 安装**——直接用
   `python scripts/cli.py <子命令> ...` 即可；本文后面的命令把
