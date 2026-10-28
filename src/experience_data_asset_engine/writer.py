@@ -25,14 +25,19 @@ import hashlib
 import json
 import os
 import re
-import tempfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Final
 
-from .config import AppConfig, ensure_inside_vault, read_json_file, write_json_atomic
+from .config import (
+    AppConfig,
+    ensure_inside_vault,
+    read_json_file,
+    write_json_atomic,
+    write_text_atomic,
+)
 from .errors import ConfigError, SchemaError
 from .models import DistilledNote, NoiseReport, NormalizedSession
 from .noise import redact_sensitive
@@ -492,22 +497,11 @@ def _append_audit(config: AppConfig, record: Mapping[str, Any]) -> Path:
 
 
 # --- 原子写入 ---------------------------------------------------------------
-
-
-def write_text_atomic(path: Path, text: str) -> Path:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp_name = tempfile.mkstemp(dir=str(path.parent), prefix=".edae-", suffix=".md.tmp")
-    tmp_path = Path(tmp_name)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
-            handle.write(text)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(tmp_path, path)
-    except BaseException:
-        tmp_path.unlink(missing_ok=True)
-        raise
-    return path
+#
+# 实现只有一份，在 ``config.write_text_atomic``（同目录 mkstemp + fsync + os.replace，
+# 失败清理临时文件），这里只是从 config 导入并复用同名符号。``validator`` 与既有测试
+# 都从 ``writer`` 取这个名字，所以必须继续可导入；但本地不再留第二份实现——两份就必然
+# 漏改一边（distill 的固定 ``.tmp`` 就是这么漂出来的）。
 
 
 def _is_ours(existing: Path, state_key: str) -> bool:

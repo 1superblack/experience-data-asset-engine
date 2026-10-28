@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import os
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -629,3 +630,72 @@ def test_no_provider_does_not_create_config_file(base_config):
     with pytest.raises(DistillationRequired):
         prepare_distillation(load_normalized_json(SESSION), base_config)
     assert not (base_config.state_dir / CONFIG_FILENAME).exists()
+
+
+# --- staging 写入必须是原子的（Gate 5b） --------------------------------------
+#
+# 旧实现是「固定 <name>.tmp + replace」：中途失败会在 vault 的
+# .experience-data-asset-engine/staging/ 里留下一个永不清理的 .tmp，
+# 而且没有 fsync，掉电后可能留下半截 prompt。下面两条故障注入把这两点钉住。
+
+
+def _staging_residue(directory: Path) -> list[str]:
+    return sorted(
+        path.name
+        for path in directory.iterdir()
+        if path.name.endswith(".tmp") or path.name.startswith(".tmp-")
+    )
+
+
+def _prepare_existing_request(base_config: AppConfig) -> tuple[NormalizedSession, Path]:
+    """先放一份「旧的」request.md，用来验证失败时字节不变。"""
+    session = load_normalized_json(SESSION)
+    staging = base_config.staging_dir
+    staging.mkdir(parents=True, exist_ok=True)
+    request_path = staging / f"{session.state_key}.request.md"
+    request_path.write_bytes(b"old-request-bytes\n")
+    return session, request_path
+
+
+def test_staging_write_failure_during_write_leaves_no_temp(
+    base_config, monkeypatch: pytest.MonkeyPatch
+):
+    """写入阶段（fsync）失败：既有 request.md 字节不变，且不留临时文件。"""
+    session, request_path = _prepare_existing_request(base_config)
+    before = request_path.read_bytes()
+
+    def boom(fd):  # noqa: ANN001
+        raise OSError("模拟 fsync 失败")
+
+    monkeypatch.setattr(os, "fsync", boom)
+    with pytest.raises(OSError, match="模拟 fsync 失败"):
+        prepare_distillation(session, base_config)
+
+    assert request_path.read_bytes() == before, "写入失败却改了既有 request.md"
+    assert _staging_residue(base_config.staging_dir) == [], "临时文件残留"
+
+
+def test_staging_write_failure_during_replace_leaves_no_temp(
+    base_config, monkeypatch: pytest.MonkeyPatch
+):
+    """替换阶段失败：既有 request.md 字节不变，且不留临时文件。"""
+    session, request_path = _prepare_existing_request(base_config)
+    before = request_path.read_bytes()
+
+    def boom(src, dst):  # noqa: ANN001
+        raise OSError("模拟 replace 失败")
+
+    monkeypatch.setattr(os, "replace", boom)
+    with pytest.raises(OSError, match="模拟 replace 失败"):
+        prepare_distillation(session, base_config)
+
+    assert request_path.read_bytes() == before, "替换失败却改了既有 request.md"
+    assert _staging_residue(base_config.staging_dir) == [], "临时文件残留"
+
+
+def test_staging_uses_the_shared_atomic_writer():
+    """staging 不能再有第二份原子写入实现（旧的固定 ``.tmp`` 就在这份里）。"""
+    from experience_data_asset_engine import config
+
+    assert distill_module.write_text_atomic is config.write_text_atomic
+    assert not hasattr(distill_module, "_write_text_atomic"), "staging 仍有本地重复实现"
