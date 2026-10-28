@@ -51,17 +51,23 @@ jobs:
       # 所以这里是「一次运行同时出测试结果和覆盖率」，而不是先裸跑 pytest 再 report
       # （那样 report 只会报 No data to report）。
       #
-      # 装了 codex extra 就要求 **0 skip**：跳过意味着 `.jsonl.zst` 读取路径根本没被执行，
-      # 覆盖率数字会虚高，那种"全绿"是假绿。所以本 job 把 skip 直接判失败。
-      - name: 单元测试 + 覆盖率（分支，阈值 85%，禁止 skip）
+      # 装了 codex extra 后，唯一允许的 skip 是 2 条只在 Windows 代码页下成立的编码回归。
+      # 其它 skip 仍判失败，避免 `.jsonl.zst` 等真实路径没跑却显示全绿。
+      - name: 单元测试 + 覆盖率（分支，阈值 85%，仅允许 Windows-only skip）
         shell: bash
         run: |
           set -o pipefail
           python -m coverage run -m pytest -q --cache-clear -rs 2>&1 | tee pytest-with-zstd.log
           python -m coverage report --fail-under=85
-          if grep -Eq '[0-9]+ skipped' pytest-with-zstd.log; then
-            echo "::error::dev+codex 环境下出现了 skip 用例，说明有路径没被真正执行。"
-            grep -E 'SKIPPED|skipped' pytest-with-zstd.log || true
+          if ! grep -Eq '[0-9]+ passed, 2 skipped' pytest-with-zstd.log; then
+            echo "::error::dev+codex 环境应只有 2 条 Windows-only 编码测试 skip。"
+            tail -n 30 pytest-with-zstd.log
+            exit 1
+          fi
+          unexpected_skips="$(grep -E '^SKIPPED' pytest-with-zstd.log | grep -Fv 'tests/test_cli_encoding.py' || true)"
+          if [ -n "${unexpected_skips}" ]; then
+            echo "::error::dev+codex 环境出现了 Windows 编码回归之外的 skip。"
+            echo "${unexpected_skips}"
             exit 1
           fi
 
@@ -107,16 +113,27 @@ jobs:
           print("已确认环境无 zstandard")
           PY
 
-      - name: 全量测试（5 个 zstd 用例应 skip，其余必须全绿）
+      - name: 全量测试（精确校验 zstd 与 Windows-only skip）
         shell: bash
         run: |
           set -o pipefail
           python -m pytest -q --cache-clear -rs 2>&1 | tee pytest-no-zstd.log
-          if grep -Eq '(^|[^0-9])5 skipped' pytest-no-zstd.log; then
-            echo "跳过数量符合预期：5 个依赖 zstandard 的用例被 skip。"
-          else
-            echo "::error::预期恰好 5 个 zstd 用例被 skip，实际摘要与预期不符。"
+          if ! grep -Eq '[0-9]+ passed, 7 skipped' pytest-no-zstd.log; then
+            echo "::error::无 zstd 环境应恰好有 5 个 zstd skip + 2 个 Windows-only skip。"
             tail -n 20 pytest-no-zstd.log
+            exit 1
+          fi
+          zstd_skips="$(grep -c 'SKIPPED .*tests/test_codex_adapter.py' pytest-no-zstd.log || true)"
+          windows_skips="$(grep -c 'SKIPPED .*tests/test_cli_encoding.py' pytest-no-zstd.log || true)"
+          if [ "${zstd_skips}" -ne 5 ] || [ "${windows_skips}" -ne 2 ]; then
+            echo "::error::skip 分类不符：zstd=${zstd_skips}（期望 5），Windows-only=${windows_skips}（期望 2）。"
+            grep -E '^SKIPPED' pytest-no-zstd.log || true
+            exit 1
+          fi
+          unexpected_skips="$(grep -E '^SKIPPED' pytest-no-zstd.log | grep -Fv -e 'tests/test_codex_adapter.py' -e 'tests/test_cli_encoding.py' || true)"
+          if [ -n "${unexpected_skips}" ]; then
+            echo "::error::无 zstd 环境出现了预期分类之外的 skip。"
+            echo "${unexpected_skips}"
             exit 1
           fi
 
